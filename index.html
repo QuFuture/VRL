@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SCARA Forward Kinematics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: lab bench — instrument panel on the left, 3D cell on the right, worksheets (DH, matrices, observations, theory) below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:24px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+header{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+
+.pose{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pose div{border-top:2px solid var(--line);padding-top:6px}
+.pose dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.pose dd{margin:0;font-family:var(--f-mono);font-size:1.3rem;font-variant-numeric:tabular-nums}
+.pose dd span{font-size:.75rem;color:var(--muted)}
+.pose .x{border-color:#d0453b}.pose .y{border-color:#3c9a4a}.pose .z{border-color:#3b6fd0}.pose .phi{border-color:var(--accent)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;gap:0;width:max-content;margin:4px 0}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(4,auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Robotics Virtual Lab · Experiment 2 · Forward kinematics</span>
+    <h1>SCARA Forward Kinematics</h1>
+    <p class="lead">A SCARA (Selective Compliance Assembly Robot Arm) has two revolute joints that sweep in a horizontal plane, a prismatic quill that moves the tool up and down, and a revolute wrist that spins it. Set the four joint values, then compare the transformation matrix with the arm in the 3D cell.</p>
+    <div class="chips">
+      <span class="chip">4 DOF · RRPR</span>
+      <span class="chip">a₁ = 350 mm</span>
+      <span class="chip">a₂ = 250 mm</span>
+      <span class="chip">d₁ = 400 mm</span>
+      <span class="chip">d₄ = 50 mm</span>
+    </div>
+  </header>
+
+  <section class="lab">
+    <div class="panel" aria-labelledby="inputs-h">
+      <div class="panel-head"><h2 id="inputs-h">Joint inputs</h2><span class="muted" style="font-size:.85rem">Controller</span></div>
+      <div id="joints" style="display:flex;flex-direction:column;gap:14px"></div>
+      <div class="btnrow" aria-label="Preset poses">
+        <button type="button" data-preset="home">Home</button>
+        <button type="button" data-preset="pick">Pick</button>
+        <button type="button" data-preset="place">Place</button>
+        <button type="button" data-preset="elbow">Elbow flip</button>
+      </div>
+      <div>
+        <h3 style="margin-bottom:8px">Manipulator position</h3>
+        <dl class="pose" style="margin:0">
+          <div class="x"><dt>x</dt><dd><b id="px">0</b> <span>m</span></dd></div>
+          <div class="y"><dt>y</dt><dd><b id="py">0</b> <span>m</span></dd></div>
+          <div class="z"><dt>z</dt><dd><b id="pz">0</b> <span>m</span></dd></div>
+          <div class="phi"><dt>φ (tool yaw)</dt><dd><b id="pphi">0</b> <span>deg</span></dd></div>
+        </dl>
+      </div>
+      <button type="button" class="primary" id="record">Add reading to observation table</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+      <div class="viewport" id="viewport">
+        <div class="vp-bar">
+          <button type="button" id="t-frames" aria-pressed="true">DH frames</button>
+          <button type="button" id="t-ws" aria-pressed="true">Workspace</button>
+          <button type="button" id="t-trail" aria-pressed="true">Tool trail</button>
+          <button type="button" id="t-demo" aria-pressed="false">Demo motion</button>
+          <button type="button" id="t-view">Reset view</button>
+        </div>
+        <div class="vp-note">Drag to orbit · scroll or pinch to zoom · x red, y green, z blue</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheets">
+    <div class="panel">
+      <div class="panel-head"><h2>DH parameter table</h2><span class="muted" style="font-size:.85rem">Highlighted = joint variable</span></div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Link i</th><th>θᵢ (deg)</th><th>dᵢ (m)</th><th>aᵢ (m)</th><th>αᵢ (deg)</th></tr></thead>
+          <tbody id="dh-body"></tbody>
+        </table>
+      </div>
+      <p class="caption">α₂ = 180° flips z downward after the elbow, so a positive d₃ lowers the quill and the tool frame z₄ points at the work surface.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Transformation matrix</h2></div>
+      <div class="tabs" role="tablist" id="mtabs"></div>
+      <p class="caption" id="mcap"></p>
+      <div class="scroll"><div class="matrix-wrap"><div class="bracket l"></div><div class="matrix" id="matrix"></div><div class="bracket r"></div></div></div>
+      <p class="check" id="check"></p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Observation table</h2>
+      <div class="btnrow"><button type="button" id="copy-csv">Copy as CSV</button><button type="button" id="clear-obs">Clear</button></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>#</th><th>θ₁ (°)</th><th>θ₂ (°)</th><th>d₃ (mm)</th><th>θ₄ (°)</th><th>x (m)</th><th>y (m)</th><th>z (m)</th><th>φ (°)</th></tr></thead>
+        <tbody id="obs-body"></tbody>
+      </table>
+    </div>
+    <p class="obs-empty" id="obs-empty">No readings yet. Set a pose and press “Add reading to observation table” to log it for your lab record.</p>
+    <p class="caption" id="copy-msg" aria-live="polite"></p>
+  </section>
+
+  <section class="theory">
+    <div class="panel">
+      <h2>Theory</h2>
+      <p>Each link transform follows the standard Denavit–Hartenberg convention:</p>
+      <div class="eq">Aᵢ = Rot(z,θᵢ)·Trans(z,dᵢ)·Trans(x,aᵢ)·Rot(x,αᵢ)
+
+    ⎡cθ  −sθcα   sθsα   a·cθ⎤
+Aᵢ = ⎢sθ   cθcα  −cθsα   a·sθ⎥
+    ⎢0     sα     cα     d  ⎥
+    ⎣0     0      0      1  ⎦</div>
+      <p>The tool pose is the product T₀⁴ = A₁A₂A₃A₄. For a SCARA it reduces to a closed form:</p>
+      <div class="eq">x = a₁cosθ₁ + a₂cos(θ₁+θ₂)
+y = a₁sinθ₁ + a₂sin(θ₁+θ₂)
+z = d₁ − d₃ − d₄
+φ = θ₁ + θ₂ − θ₄</div>
+    </div>
+    <div class="panel">
+      <h2>Procedure</h2>
+      <ol>
+        <li>Press Home and note that the arm lies straight along x₀ with x = a₁ + a₂ = 0.600 m.</li>
+        <li>Change only θ₁. Confirm that x and y change but z and the distance from the base axis stay fixed.</li>
+        <li>Change only d₃. Confirm that only z changes, by exactly the amount you entered.</li>
+        <li>Change θ₄ and watch φ. Explain why z₄ points downward.</li>
+        <li>Choose a pose, compute T₀⁴ by hand from the DH table, and compare with the matrix shown.</li>
+        <li>Find two joint sets (elbow up and elbow down) that give the same x, y. Log both.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>How this simulator is built</h2>
+      <ul>
+        <li>The DH table is stored as data. Each slider change rebuilds A₁…A₄ with the formula on the left and multiplies them.</li>
+        <li>The 3D arm is a three.js scene graph whose groups mirror the joints: base → link 1 (θ₁) → link 2 (θ₂) → quill (d₃) → wrist (θ₄).</li>
+        <li>The tool frame triad is placed directly from the computed T₀⁴, so if your math were wrong it would visibly miss the gripper.</li>
+        <li>The workspace is drawn by sampling every θ₁, θ₂ pair within the joint limits.</li>
+        <li>Next experiments to add: inverse kinematics, the Jacobian, and point-to-point trajectory planning.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Link lengths are typical of a mid-size assembly SCARA and can be changed in the source (the <span class="mono">ROBOT</span> object). All values are in SI units unless noted.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const DEG = Math.PI/180;
+const ROBOT = { d1:0.40, a1:0.35, a2:0.25, d4:0.05 };
+const JOINTS = [
+  { key:'t1', label:'θ₁', name:'Shoulder (base) joint', min:-150, max:150, step:0.5, unit:'°' },
+  { key:'t2', label:'θ₂', name:'Elbow joint',          min:-145, max:145, step:0.5, unit:'°' },
+  { key:'d3', label:'d₃', name:'Quill (prismatic)',   min:0,    max:300, step:1,   unit:'mm' },
+  { key:'t4', label:'θ₄', name:'Wrist roll',           min:-180, max:180, step:0.5, unit:'°' },
+];
+const PRESETS = {
+  home:{t1:0,t2:0,d3:0,t4:0},
+  pick:{t1:35,t2:60,d3:220,t4:20},
+  place:{t1:-70,t2:-40,d3:180,t4:-60},
+  elbow:{t1:65,t2:-60,d3:120,t4:0}
+};
+const state = { t1:30, t2:45, d3:80, t4:0 };
+
+/* ---------- kinematics ---------- */
+function dh(th,d,a,al){
+  const c=Math.cos(th), s=Math.sin(th), ca=Math.cos(al), sa=Math.sin(al);
+  return [[c,-s*ca, s*sa,a*c],[s, c*ca,-c*sa,a*s],[0,sa,ca,d],[0,0,0,1]];
+}
+function mul(A,B){
+  const C=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=A[i][k]*B[k][j];C[i][j]=s;}
+  return C;
+}
+function dhRows(){
+  return [
+    { th:state.t1*DEG, d:ROBOT.d1,         a:ROBOT.a1, al:0,       v:'th' },
+    { th:state.t2*DEG, d:0,                a:ROBOT.a2, al:Math.PI, v:'th' },
+    { th:0,            d:state.d3/1000,    a:0,        al:0,       v:'d'  },
+    { th:state.t4*DEG, d:ROBOT.d4,         a:0,        al:0,       v:'th' },
+  ];
+}
+function solve(){
+  const rows=dhRows();
+  const A=rows.map(r=>dh(r.th,r.d,r.a,r.al));
+  const T=[A[0]]; for(let i=1;i<4;i++)T.push(mul(T[i-1],A[i]));
+  return {rows,A,T};
+}
+const clean=v=>Math.abs(v)<5e-6?0:v;
+const f=(v,n)=>clean(v).toFixed(n);
+
+/* ---------- inputs ---------- */
+const jointsEl=document.getElementById('joints');
+JOINTS.forEach(j=>{
+  const div=document.createElement('div'); div.className='joint';
+  div.innerHTML=`<label for="${j.key}-num">${j.label} <small>${j.name}</small></label>
+    <span class="num"><input type="number" id="${j.key}-num" min="${j.min}" max="${j.max}" step="${j.step}"><span class="unit">${j.unit}</span></span>
+    <input type="range" id="${j.key}-range" min="${j.min}" max="${j.max}" step="${j.step}" aria-label="${j.name}">
+    <span class="lim"><span>${j.min}${j.unit}</span><span>${j.max}${j.unit}</span></span>`;
+  jointsEl.appendChild(div);
+  const r=div.querySelector('input[type=range]'), n=div.querySelector('input[type=number]');
+  r.addEventListener('input',()=>{state[j.key]=+r.value;n.value=r.value;update();});
+  n.addEventListener('change',()=>{let v=+n.value;if(isNaN(v))v=state[j.key];v=Math.min(j.max,Math.max(j.min,v));state[j.key]=v;n.value=v;r.value=v;update();});
+});
+function syncInputs(){
+  JOINTS.forEach(j=>{
+    const v=Math.round(state[j.key]/j.step)*j.step;
+    document.getElementById(j.key+'-range').value=v;
+    document.getElementById(j.key+'-num').value=+v.toFixed(1);
+  });
+}
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{
+  setDemo(false); Object.assign(state,PRESETS[b.dataset.preset]); syncInputs(); update();
+}));
+
+/* ---------- matrix tabs ---------- */
+const TABS=[
+  {id:'A1',label:'A₁',cap:'A₁ = Rot(z,θ₁)·Trans(z,d₁)·Trans(x,a₁) — base to frame 1'},
+  {id:'A2',label:'A₂',cap:'A₂ = Rot(z,θ₂)·Trans(x,a₂)·Rot(x,180°) — frame 1 to frame 2'},
+  {id:'A3',label:'A₃',cap:'A₃ = Trans(z,d₃) — prismatic quill, frame 2 to frame 3'},
+  {id:'A4',label:'A₄',cap:'A₄ = Rot(z,θ₄)·Trans(z,d₄) — wrist to tool tip'},
+  {id:'T',label:'T₀⁴',cap:'T₀⁴ = A₁·A₂·A₃·A₄ — tool pose in the base frame. The last column is the tool position.'},
+];
+let tab='T';
+const tabsEl=document.getElementById('mtabs');
+TABS.forEach(t=>{
+  const b=document.createElement('button');b.type='button';b.textContent=t.label;b.setAttribute('role','tab');b.id='tab-'+t.id;
+  b.addEventListener('click',()=>{tab=t.id;update();});tabsEl.appendChild(b);
+});
+
+/* ---------- observations ---------- */
+const obs=[];
+const obsBody=document.getElementById('obs-body');
+function renderObs(){
+  obsBody.innerHTML=obs.map((o,i)=>`<tr><td>${i+1}</td><td>${o.t1.toFixed(1)}</td><td>${o.t2.toFixed(1)}</td><td>${o.d3.toFixed(0)}</td><td>${o.t4.toFixed(1)}</td><td>${o.x}</td><td>${o.y}</td><td>${o.z}</td><td>${o.phi}</td></tr>`).join('');
+  document.getElementById('obs-empty').hidden=obs.length>0;
+}
+document.getElementById('record').addEventListener('click',()=>{
+  const {T}=solve(),M=T[3];
+  obs.push({t1:state.t1,t2:state.t2,d3:state.d3,t4:state.t4,x:f(M[0][3],4),y:f(M[1][3],4),z:f(M[2][3],4),phi:f(yaw(M),2)});
+  renderObs();
+});
+document.getElementById('clear-obs').addEventListener('click',()=>{obs.length=0;renderObs();document.getElementById('copy-msg').textContent='';});
+document.getElementById('copy-csv').addEventListener('click',()=>{
+  const msg=document.getElementById('copy-msg');
+  if(!obs.length){msg.textContent='Add at least one reading first.';return;}
+  const csv=['n,theta1_deg,theta2_deg,d3_mm,theta4_deg,x_m,y_m,z_m,phi_deg',...obs.map((o,i)=>[i+1,o.t1,o.t2,o.d3,o.t4,o.x,o.y,o.z,o.phi].join(','))].join('\n');
+  try{
+    navigator.clipboard.writeText(csv).then(()=>{msg.textContent=`Copied ${obs.length} reading${obs.length>1?'s':''} as CSV.`;},()=>{msg.textContent='Copy was blocked here. Select the table and copy it manually.';});
+  }catch(e){msg.textContent='Copy was blocked here. Select the table and copy it manually.';}
+});
+function yaw(M){let p=Math.atan2(M[1][0],M[0][0])/DEG; return clean(p);}
+
+/* ---------- update ---------- */
+function update(){
+  const {rows,A,T}=solve(), M=T[3];
+  document.getElementById('px').textContent=f(M[0][3],4);
+  document.getElementById('py').textContent=f(M[1][3],4);
+  document.getElementById('pz').textContent=f(M[2][3],4);
+  document.getElementById('pphi').textContent=f(yaw(M),2);
+
+  document.getElementById('dh-body').innerHTML=rows.map((r,i)=>{
+    const th=(i===2)?'0':f(r.th/DEG,1), d=f(r.d,3);
+    return `<tr><td>${i+1}</td><td class="${r.v==='th'?'var':''}">${th}${r.v==='th'?' *':''}</td><td class="${r.v==='d'?'var':''}">${d}${r.v==='d'?' *':''}</td><td>${f(r.a,3)}</td><td>${f(r.al/DEG,0)}</td></tr>`;
+  }).join('');
+
+  const mat = tab==='T'?M:A[+tab[1]-1];
+  document.getElementById('matrix').innerHTML=mat.map((row,i)=>row.map((v,j)=>`<span class="${j===3&&i<3?'pos':''}">${f(v,4)}</span>`).join('')).join('');
+  document.getElementById('mcap').textContent=TABS.find(t=>t.id===tab).cap;
+  TABS.forEach(t=>document.getElementById('tab-'+t.id).setAttribute('aria-pressed',String(t.id===tab)));
+
+  const t1=state.t1*DEG,t2=state.t2*DEG;
+  const xc=ROBOT.a1*Math.cos(t1)+ROBOT.a2*Math.cos(t1+t2), yc=ROBOT.a1*Math.sin(t1)+ROBOT.a2*Math.sin(t1+t2), zc=ROBOT.d1-state.d3/1000-ROBOT.d4;
+  const ok=Math.abs(xc-M[0][3])<1e-9&&Math.abs(yc-M[1][3])<1e-9&&Math.abs(zc-M[2][3])<1e-9;
+  document.getElementById('check').textContent=`Closed-form check: x = ${f(xc,4)}, y = ${f(yc,4)}, z = ${f(zc,4)} m — ${ok?'matches the last column of T₀⁴ ✓':'does not match T₀⁴'}`;
+
+  if(window.__scara)window.__scara.pose(T);
+}
+
+/* ---------- 3D cell ---------- */
+function init3D(){
+  const vp=document.getElementById('viewport');
+  if(!window.THREE){const d=document.createElement('div');d.className='vp-fallback';d.textContent='The 3D view could not load. The matrices and readings still work.';vp.appendChild(d);return;}
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  vp.insertBefore(renderer.domElement,vp.firstChild);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(38,4/3,0.01,20);
+  camera.up.set(0,0,1);
+  const HOME_CAM=new THREE.Vector3(1.15,-1.05,0.9), HOME_TGT=new THREE.Vector3(0.12,0,0.22);
+  camera.position.copy(HOME_CAM);
+  let controls=null;
+  if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.copy(HOME_TGT);controls.enableDamping=true;controls.update();}
+  else camera.lookAt(HOME_TGT);
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,0.85));
+  const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(1.5,-1,2.5);scene.add(sun);
+
+  const mBase=new THREE.MeshStandardMaterial({metalness:0.35,roughness:0.55});
+  const mLink=new THREE.MeshStandardMaterial({metalness:0.15,roughness:0.45});
+  const mSteel=new THREE.MeshStandardMaterial({color:0xb8c0c6,metalness:0.8,roughness:0.3});
+  const mDark=new THREE.MeshStandardMaterial({color:0x2a3036,metalness:0.4,roughness:0.6});
+  const R=ROBOT;
+  const cyl=(r,h,m)=>{const g=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,40),m);g.rotation.x=Math.PI/2;return g;};
+  const box=(x,y,z,m)=>new THREE.Mesh(new THREE.BoxGeometry(x,y,z),m);
+
+  // floor grid in XY plane
+  const grid=new THREE.GridHelper(1.6,32);grid.rotation.x=Math.PI/2;scene.add(grid);
+
+  // base
+  const plate=box(0.22,0.22,0.02,mDark);plate.position.z=0.01;scene.add(plate);
+  const column=cyl(0.07,R.d1-0.02,mBase);column.position.z=0.02+(R.d1-0.02)/2;scene.add(column);
+
+  // link 1 (θ1)
+  const g1=new THREE.Group();scene.add(g1);
+  const hub1=cyl(0.075,0.06,mLink);hub1.position.z=R.d1+0.03;g1.add(hub1);
+  const l1=box(R.a1,0.09,0.05,mLink);l1.position.set(R.a1/2,0,R.d1+0.025);g1.add(l1);
+  // link 2 (θ2)
+  const g2=new THREE.Group();g2.position.x=R.a1;g1.add(g2);
+  const elbow=cyl(0.05,0.1,mDark);elbow.position.z=R.d1;g2.add(elbow);
+  const l2=box(R.a2,0.075,0.04,mLink);l2.position.set(R.a2/2,0,R.d1-0.02);g2.add(l2);
+  const housing=cyl(0.04,0.1,mLink);housing.position.set(R.a2,0,R.d1-0.01);g2.add(housing);
+  // quill (d3)
+  const QL=0.42;
+  const quill=cyl(0.013,QL,mSteel);g2.add(quill);
+  // wrist / tool (θ4)
+  const tool=new THREE.Group();g2.add(tool);
+  const flange=cyl(0.026,0.012,mDark);flange.position.z=-0.006;tool.add(flange);
+  const fA=box(0.009,0.022,R.d4-0.012,mSteel);fA.position.set(0.018,0,-0.012-(R.d4-0.012)/2);tool.add(fA);
+  const fB=fA.clone();fB.position.x=-0.018;tool.add(fB);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.008,16,12),new THREE.MeshBasicMaterial({color:0xd0453b}));tip.position.z=-R.d4;tool.add(tip);
+
+  // DH frames placed from computed transforms
+  const frames=[];
+  for(let i=0;i<5;i++){const a=new THREE.AxesHelper(i===0?0.14:i===4?0.09:0.06);a.matrixAutoUpdate=false;scene.add(a);frames.push(a);}
+  frames[0].matrix.identity();
+
+  // workspace sample
+  const pts=[];
+  for(let a=-150;a<=150;a+=2.5)for(let b=-145;b<=145;b+=2.5){
+    const t1=a*DEG,t2=b*DEG;pts.push(R.a1*Math.cos(t1)+R.a2*Math.cos(t1+t2),R.a1*Math.sin(t1)+R.a2*Math.sin(t1+t2),0.002);
+  }
+  const wsGeo=new THREE.BufferGeometry();wsGeo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+  const wsMat=new THREE.PointsMaterial({size:0.006,transparent:true,opacity:0.45});
+  const ws=new THREE.Points(wsGeo,wsMat);scene.add(ws);
+
+  // trail + drop line
+  const N=500,trailPos=new Float32Array(N*3);let tn=0;
+  const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(trailPos,3));trailGeo.setDrawRange(0,0);
+  const trailMat=new THREE.LineBasicMaterial();const trail=new THREE.Line(trailGeo,trailMat);scene.add(trail);
+  const dropGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);
+  const dropMat=new THREE.LineDashedMaterial({dashSize:0.015,gapSize:0.01});const drop=new THREE.Line(dropGeo,dropMat);scene.add(drop);
+
+  function theme(){
+    scene.background=new THREE.Color(css('--scene'));
+    mBase.color.set(css('--base3d'));mLink.color.set(css('--link3d'));
+    wsMat.color.set(css('--ws3d'));trailMat.color.set(css('--trail3d'));dropMat.color.set(css('--muted'));
+    const gc=new THREE.Color(css('--grid3d'));
+    [].concat(grid.material).forEach(m=>m.color&&m.color.copy(gc));
+    if(grid.geometry.attributes.color){const c=grid.geometry.attributes.color;for(let i=0;i<c.count;i++)c.setXYZ(i,gc.r,gc.g,gc.b);c.needsUpdate=true;}
+  }
+  theme();
+  try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);}catch(e){}
+  new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  function resize(){const w=vp.clientWidth,h=vp.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(vp);resize();
+
+  let lastTip=null;
+  function pose(T){
+    g1.rotation.z=state.t1*DEG; g2.rotation.z=state.t2*DEG;
+    const zf=R.d1-state.d3/1000;
+    quill.position.set(R.a2,0,zf+QL/2);
+    tool.position.set(R.a2,0,zf); tool.rotation.z=-state.t4*DEG;
+    for(let i=0;i<4;i++){const M=T[i];frames[i+1].matrix.set(M[0][0],M[0][1],M[0][2],M[0][3],M[1][0],M[1][1],M[1][2],M[1][3],M[2][0],M[2][1],M[2][2],M[2][3],0,0,0,1);}
+    const M=T[3],p=new THREE.Vector3(M[0][3],M[1][3],M[2][3]);
+    dropGeo.setFromPoints([p,new THREE.Vector3(p.x,p.y,0)]);drop.computeLineDistances();
+    if(!lastTip||lastTip.distanceTo(p)>0.002){
+      if(tn<N){trailPos.set([p.x,p.y,p.z],tn*3);tn++;}
+      else{trailPos.copyWithin(0,3);trailPos.set([p.x,p.y,p.z],(N-1)*3);}
+      trailGeo.attributes.position.needsUpdate=true;trailGeo.setDrawRange(0,tn);lastTip=p;
+    }
+  }
+  function clearTrail(){tn=0;trailGeo.setDrawRange(0,0);lastTip=null;}
+
+  const toggle=(id,fn)=>{const b=document.getElementById(id);b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));fn(on);});};
+  toggle('t-frames',on=>frames.forEach(fr=>fr.visible=on));
+  toggle('t-ws',on=>ws.visible=on);
+  toggle('t-trail',on=>{trail.visible=on;if(!on)clearTrail();});
+  document.getElementById('t-view').addEventListener('click',()=>{camera.position.copy(HOME_CAM);if(controls){controls.target.copy(HOME_TGT);controls.update();}else camera.lookAt(HOME_TGT);});
+
+  function loop(){requestAnimationFrame(loop);if(demo.on)demoStep();if(controls)controls.update();renderer.render(scene,camera);}
+  loop();
+  window.__scara={pose,clearTrail};
+}
+
+/* ---------- demo motion ---------- */
+const demo={on:false,t:0};
+function setDemo(on){demo.on=on;const b=document.getElementById('t-demo');if(b)b.setAttribute('aria-pressed',String(on));}
+function demoStep(){
+  demo.t+=0.012;const t=demo.t;
+  state.t1=70*Math.sin(t);state.t2=95*Math.sin(1.37*t+0.6);state.d3=150+110*Math.sin(0.9*t);state.t4=150*Math.sin(0.55*t);
+  syncInputs();update();
+}
+document.getElementById('t-demo').addEventListener('click',()=>setDemo(!demo.on));
+
+init3D();
+syncInputs();
+update();
+renderObs();
+})();
+</script>
+</body>
+</html>
