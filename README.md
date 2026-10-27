@@ -153,7 +153,4 @@ const ROBOT = { d1: 0.40, a1: 0.35, a2: 0.25, d4: 0.05 };
 
 ## Author
 
-**Siri**
-M.Tech, Robotics and Artificial Intelligence
-
 This is an academic project for learning and coursework.
