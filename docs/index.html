@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoboKinetix Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* RoboKinetix Lab shared styles. Layout: lab bench — instrument panel left, simulation cell right, worksheets below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --ax-x:#d0453b; --ax-y:#3c9a4a; --ax-z:#3b6fd0; --warn:#b3261e; --warn-soft:#fbe3e0; --ok:#2e7d32;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.topnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.topnav .home{font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.05rem;color:var(--fg);text-decoration:none;margin-right:auto}
+.topnav .home span{color:var(--accent)}
+.topnav .exps{display:flex;flex-wrap:wrap;gap:6px}
+.topnav .exps a{font-size:.85rem;font-weight:600;text-decoration:none;color:var(--muted);padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.topnav .exps a:hover{color:var(--fg);border-color:var(--accent)}
+.topnav .exps a[aria-current="page"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+
+header.exp{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header.exp .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head .muted{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);min-width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.readout div{border-top:2px solid var(--line);padding-top:6px;min-width:0}
+.readout dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.readout dd{margin:0;font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.readout dd span{font-size:.75rem;color:var(--muted)}
+.readout .x{border-color:var(--ax-x)}.readout .y{border-color:var(--ax-y)}.readout .z{border-color:var(--ax-z)}.readout .a{border-color:var(--accent)}.readout .v{border-color:var(--var)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;right:10px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;width:max-content;margin:4px 0}
+.mlabel{align-self:center;font-family:var(--f-mono);font-weight:600;padding-right:10px}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(var(--cols,4),auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+.alert{font-size:.9rem;border-left:3px solid var(--warn);padding:6px 10px;background:var(--warn-soft);color:var(--fg)}
+
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+.copy-msg{font-size:.88rem;color:var(--muted)}
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+
+.hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:center;padding-block:12px 4px}
+@media (max-width:820px){.hero{grid-template-columns:minmax(0,1fr)}}
+.hero h1{font-size:clamp(2.4rem,6vw,4rem);line-height:.95}
+.hero h1 span{color:var(--accent)}
+.hero .lead{font-size:1.1rem;color:var(--muted);max-width:56ch}
+.hero-copy{display:flex;flex-direction:column;gap:14px;min-width:0}
+.hero-fig{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;min-width:0}
+.hero-fig svg{display:block;width:100%;height:auto}
+.hero-fig figcaption{font-size:.8rem;color:var(--muted);margin-top:6px}
+.facts{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:.92rem}
+.facts b{font-family:var(--f-mono);color:var(--fg)}
+
+.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.group{display:flex;flex-direction:column;gap:10px}
+.ghead{font-size:.82rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.card.wide{grid-column:1 / -1;grid-template-columns:150px minmax(0,1fr)}
+.card.wide p{max-width:70ch}
+.card{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;color:inherit;text-decoration:none;transition:border-color .15s, transform .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+@media (prefers-reduced-motion: reduce){.card:hover{transform:none}}
+@media (max-width:420px){.card{grid-template-columns:minmax(0,1fr)}}
+.card .thumb{background:var(--scene);border-radius:4px;display:grid;place-items:center;aspect-ratio:1/1;max-width:100%}
+.card .thumb svg{width:86%;height:auto}
+.card .body{display:flex;flex-direction:column;gap:8px;min-width:0}
+.card .num{font-family:var(--f-mono);font-size:.78rem;color:var(--accent);font-weight:600}
+.card h3{font-size:1.25rem}
+.card p{font-size:.93rem;color:var(--muted)}
+.card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.card .tag{font-family:var(--f-mono);font-size:.72rem;padding:2px 8px;border:1px solid var(--line);border-radius:99px}
+.card .go{font-weight:600;color:var(--accent);font-size:.92rem}
+
+.next{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.next{grid-template-columns:minmax(0,1fr)}}
+.next div{border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.next b{font-family:var(--f-display);font-stretch:85%;font-size:1rem}
+.next span{font-size:.88rem;color:var(--muted)}
+.how{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:820px){.how{grid-template-columns:minmax(0,1fr)}}
+.how .panel p,.how li{font-size:.95rem}
+.how ol,.how ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+svg .ln{stroke:var(--fg);fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg .lk{stroke:var(--link3d);fill:none;stroke-linecap:round;stroke-linejoin:round}
+svg .jt{fill:var(--panel);stroke:var(--fg)}
+svg .gd{stroke:var(--grid3d);fill:none}
+svg .ac{stroke:var(--var);fill:none}
+svg .acf{fill:var(--var)}
+svg .tx{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+svg .bs{fill:var(--base3d)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="topnav" aria-label="Lab experiments"><a class="home" href="index.html" aria-current="page">Robo<span>Kinetix</span> Lab</a><div class="exps"><a href="puma-fk.html">1 · PUMA FK</a><a href="scara-fk.html">2 · SCARA FK</a><a href="rrp-ik.html">3 · RRP IK</a><a href="scara-ik.html">4 · SCARA IK</a><a href="jacobian.html">5 · Jacobian</a><a href="statics.html">6 · Statics</a><a href="dynamics.html">7 · Dynamics</a></div></nav>
+
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Virtual laboratory · Robot kinematics and dynamics</span>
+      <h1>Robo<span>Kinetix</span> Lab</h1>
+      <p class="lead">Interactive simulators for the core experiments of a robotics course. Move the joints, read the matrices, and see every equation acted out by a robot on screen.</p>
+      <div class="facts muted"><span><b>7</b> experiments</span><span><b>5</b> robot models</span><span>Runs in any browser</span></div>
+    </div>
+    <figure class="hero-fig" style="margin:0">
+      <svg viewBox="0 0 360 220" role="img" aria-label="Schematic of a two-link arm with DH frames and a velocity ellipse at the tool">
+        <g class="gd" stroke-width="1">
+          <path d="M20 190H340M20 150H340M20 110H340M20 70H340M20 30H340"/>
+          <path d="M60 20V200M120 20V200M180 20V200M240 20V200M300 20V200"/>
+        </g>
+        <rect class="bs" x="44" y="186" width="52" height="12" rx="2"/>
+        <path class="lk" stroke-width="14" d="M70 180 L190 110"/>
+        <path class="lk" stroke-width="10" d="M190 110 L290 140"/>
+        <circle class="jt" cx="70" cy="180" r="9" stroke-width="2"/>
+        <circle class="jt" cx="190" cy="110" r="8" stroke-width="2"/>
+        <ellipse class="ac" cx="290" cy="140" rx="34" ry="14" transform="rotate(-28 290 140)" stroke-width="2" stroke-dasharray="4 3"/>
+        <circle class="acf" cx="290" cy="140" r="4"/>
+        <path stroke="var(--ax-x)" stroke-width="2" d="M70 180 L104 180"/>
+        <path stroke="var(--ax-y)" stroke-width="2" d="M70 180 L70 146"/>
+        <path d="M130 180 A60 60 0 0 0 122 150" class="ln" stroke-width="1.5"/>
+        <text class="tx" x="134" y="166">θ₁</text>
+        <path d="M232 85 A48 48 0 0 1 236 124" class="ln" stroke-width="1.5"/>
+        <text class="tx" x="242" y="104">θ₂</text>
+        <text class="tx" x="300" y="170">J·q̇</text>
+        <text class="tx" x="110" y="196">x₀</text>
+        <text class="tx" x="58" y="140">y₀</text>
+      </svg>
+      <figcaption>Every simulator follows the same bench layout: joint controls, a live model, and worksheets with the math.</figcaption>
+    </figure>
+  </section>
+
+  <section class="stack" style="gap:22px" aria-labelledby="exp-h">
+    <div class="section-head"><h2 id="exp-h">Experiments</h2><span class="muted" style="font-size:.88rem">Work through them in order. Each one builds on the last.</span></div>
+    <div class="group"><h3 class="ghead">Forward kinematics</h3><div class="grid">
+      <a class="card" href="puma-fk.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <rect class="bs" x="30" y="84" width="40" height="8" rx="2"/>
+          <path class="lk" stroke-width="9" d="M50 84 V50"/>
+          <path class="lk" stroke-width="7" d="M50 50 L78 34"/>
+          <path class="lk" stroke-width="5" d="M78 34 L70 66"/>
+          <circle class="jt" cx="50" cy="50" r="5" stroke-width="1.5"/><circle class="jt" cx="78" cy="34" r="4" stroke-width="1.5"/>
+          <path class="ln" stroke-width="2" d="M66 72 L70 66 L74 72"/>
+        </svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 1</span>
+          <h3>PUMA 560 Forward Kinematics</h3>
+          <p>A six-joint industrial arm. Build T₀⁶ from the DH table and read the tool position and roll–pitch–yaw angles.</p>
+          <div class="tags"><span class="tag">6 DOF</span><span class="tag">RRRRRR</span><span class="tag">3D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+      <a class="card" href="scara-fk.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <rect class="bs" x="22" y="84" width="28" height="8" rx="2"/>
+          <path class="ln" stroke-width="7" stroke="var(--base3d)" d="M36 84 V30"/>
+          <path class="lk" stroke-width="8" d="M36 30 H66"/>
+          <path class="lk" stroke-width="6" d="M66 34 H86"/>
+          <path class="ln" stroke-width="3" d="M84 22 V70"/>
+          <circle class="jt" cx="66" cy="32" r="4" stroke-width="1.5"/>
+          <path class="ln" stroke-width="2" d="M80 76 L84 70 L88 76"/>
+        </svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 2</span>
+          <h3>SCARA Forward Kinematics</h3>
+          <p>An assembly arm with a vertical quill. Compare the matrix product with the closed-form x, y, z and log readings.</p>
+          <div class="tags"><span class="tag">4 DOF</span><span class="tag">RRPR</span><span class="tag">3D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+    </div></div>
+    <div class="group"><h3 class="ghead">Inverse kinematics</h3><div class="grid">
+      <a class="card" href="rrp-ik.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <rect class="bs" x="30" y="84" width="40" height="8" rx="2"/>
+          <path class="ln" stroke-width="8" stroke="var(--base3d)" d="M50 84 V52"/>
+          <path class="lk" stroke-width="10" d="M50 52 L70 38"/>
+          <path class="ln" stroke-width="4" stroke="var(--fg)" d="M70 38 L88 25"/>
+          <circle class="jt" cx="50" cy="52" r="6" stroke-width="1.5"/>
+          <circle class="acf" cx="88" cy="25" r="3.5"/>
+          <path class="ac" stroke-width="1.2" stroke-dasharray="2 2" d="M50 52 m-38 0 a38 38 0 0 1 76 0"/></svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 3</span>
+          <h3>RRP Manipulator Inverse Kinematics</h3>
+          <p>Pick a point in space and solve for two angles and a boom length. Compare the two solutions and find the reach limits.</p>
+          <div class="tags"><span class="tag">3 DOF</span><span class="tag">RRP spatial</span><span class="tag">3D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+      <a class="card" href="scara-ik.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="jt" cx="22" cy="78" r="6" stroke-width="1.5"/>
+          <path class="lk" stroke-width="7" d="M22 78 L66 64"/>
+          <path class="lk" stroke-width="5" d="M66 64 L78 30"/>
+          <path class="lk" stroke-width="7" opacity=".3" d="M22 78 L42 38"/>
+          <path class="lk" stroke-width="5" opacity=".3" d="M42 38 L78 30"/>
+          <circle class="jt" cx="66" cy="64" r="4" stroke-width="1.5"/>
+          <circle class="acf" cx="78" cy="30" r="4"/></svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 4</span>
+          <h3>SCARA Inverse Kinematics</h3>
+          <p>Solve the SCARA for a tool position and angle. See both arm shapes, check joint limits and trace a path.</p>
+          <div class="tags"><span class="tag">4 DOF</span><span class="tag">2 solutions</span><span class="tag">3D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+    </div></div>
+    <div class="group"><h3 class="ghead">Differential kinematics and statics</h3><div class="grid">
+      <a class="card" href="jacobian.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <path class="lk" stroke-width="7" d="M18 80 L52 44"/>
+          <path class="lk" stroke-width="5" d="M52 44 L80 58"/>
+          <circle class="jt" cx="18" cy="80" r="5" stroke-width="1.5"/><circle class="jt" cx="52" cy="44" r="4" stroke-width="1.5"/>
+          <ellipse class="ac" cx="80" cy="58" rx="15" ry="6" transform="rotate(-30 80 58)" stroke-width="1.5" stroke-dasharray="3 2"/>
+          <path class="ac" stroke-width="2" d="M80 58 L92 46"/>
+        </svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 5</span>
+          <h3>Jacobian and Singularities</h3>
+          <p>Map joint rates to tool velocity on a two-link arm. Watch the manipulability ellipse collapse at a singularity.</p>
+          <div class="tags"><span class="tag">2R planar</span><span class="tag">det J</span><span class="tag">2D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+      <a class="card" href="statics.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <rect class="bs" x="6" y="80" width="26" height="7" rx="2"/>
+          <path class="lk" stroke-width="7" d="M19 78 L48 50"/>
+          <path class="lk" stroke-width="5" d="M48 50 L74 58"/>
+          <path class="lk" stroke-width="4" d="M74 58 L84 70"/>
+          <circle class="jt" cx="19" cy="78" r="5" stroke-width="1.5"/><circle class="jt" cx="48" cy="50" r="4" stroke-width="1.5"/>
+          <path stroke="var(--ax-z)" stroke-width="2.5" fill="none" d="M10 70 A12 12 0 0 1 26 66"/>
+          <path stroke="var(--accent)" stroke-width="2.5" d="M84 70 V92 M80 87 L84 92 L88 87"/></svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 6</span>
+          <h3>Differential Motion and Statics</h3>
+          <p>Small motions δX = J δq and joint torques τ = Jᵀ F on a three-link arm, checked by virtual work.</p>
+          <div class="tags"><span class="tag">3R planar</span><span class="tag">τ = Jᵀ F</span><span class="tag">2D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+    </div></div>
+    <div class="group"><h3 class="ghead">Dynamics</h3><div class="grid">
+      <a class="card wide" href="dynamics.html">
+        <div class="thumb"><svg viewBox="0 0 100 100" aria-hidden="true">
+          <path class="gd" stroke-width="1" d="M10 20 H90"/>
+          <path class="lk" stroke-width="7" d="M50 20 L36 52"/>
+          <path class="lk" stroke-width="5" d="M36 52 L58 76"/>
+          <circle class="jt" cx="50" cy="20" r="5" stroke-width="1.5"/><circle class="jt" cx="36" cy="52" r="4" stroke-width="1.5"/>
+          <path class="ac" stroke-width="1.5" stroke-dasharray="2 2" d="M58 76 C70 84 80 70 76 58 C72 46 60 60 66 70"/>
+          <path class="ln" stroke-width="1.5" d="M86 40 V62 M82 57 L86 62 L90 57"/>
+          <text class="tx" x="78" y="74">g</text>
+        </svg></div>
+        <div class="body">
+          <span class="num">EXPERIMENT 7</span>
+          <h3>Two-Link Arm Dynamics</h3>
+          <p>Lagrangian model under gravity. Simulate free swing, then hold a pose with PD control, gravity compensation and computed torque, and compare the responses.</p>
+          <div class="tags"><span class="tag">M(q)q̈ + C + G = τ</span><span class="tag">RK4</span><span class="tag">2D</span></div>
+          <span class="go">Open simulator →</span>
+        </div>
+      </a>
+    </div></div>
+  </section>
+
+  <section class="stack" style="gap:12px" aria-labelledby="next-h">
+    <h2 id="next-h">Planned experiments</h2>
+    <div class="next">
+      <div><b>Trajectory Planning</b><span>Cubic and quintic joint trajectories with velocity and acceleration plots.</span></div>
+      <div><b>Learning-Based Control</b><span>Train a reaching policy and compare it with computed-torque control.</span></div>
+    </div>
+  </section>
+
+  <section class="how">
+    <div class="panel">
+      <h2>How to use the lab</h2>
+      <ol>
+        <li>Read the aim and theory at the bottom of each simulator.</li>
+        <li>Follow the numbered procedure, changing one joint or parameter at a time.</li>
+        <li>Work the matrices out by hand for one pose and compare.</li>
+        <li>Log readings and copy them as CSV into your lab record.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>Conventions</h2>
+      <ul>
+        <li>Standard Denavit–Hartenberg parameters: θ, d, a, α.</li>
+        <li>Lengths in metres, angles in degrees on screen and radians in code.</li>
+        <li>Frame axes drawn x red, y green, z blue.</li>
+        <li>Joint variables are highlighted in every DH table.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>References</h2>
+      <ul>
+        <li>J. J. Craig, <i>Introduction to Robotics: Mechanics and Control</i>.</li>
+        <li>M. W. Spong, S. Hutchinson, M. Vidyasagar, <i>Robot Modeling and Control</i>.</li>
+        <li>S. K. Saha, <i>Introduction to Robotics</i>.</li>
+        <li><a href="https://mr-iitkgp.vlabs.ac.in/" target="_blank" rel="noopener">Virtual Labs, IIT Kharagpur</a>: Mechanisms and Robotics Lab.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>RoboKinetix Lab · M.Tech Robotics and AI coursework project · Simulators run entirely in your browser.</footer>
+</div>
+</body>
+</html>
