@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RRP Manipulator Inverse Kinematics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* RoboKinetix Lab shared styles. Layout: lab bench — instrument panel left, simulation cell right, worksheets below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --ax-x:#d0453b; --ax-y:#3c9a4a; --ax-z:#3b6fd0; --warn:#b3261e; --warn-soft:#fbe3e0; --ok:#2e7d32;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.topnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.topnav .home{font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.05rem;color:var(--fg);text-decoration:none;margin-right:auto}
+.topnav .home span{color:var(--accent)}
+.topnav .exps{display:flex;flex-wrap:wrap;gap:6px}
+.topnav .exps a{font-size:.85rem;font-weight:600;text-decoration:none;color:var(--muted);padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.topnav .exps a:hover{color:var(--fg);border-color:var(--accent)}
+.topnav .exps a[aria-current="page"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+
+header.exp{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header.exp .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head .muted{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);min-width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.readout div{border-top:2px solid var(--line);padding-top:6px;min-width:0}
+.readout dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.readout dd{margin:0;font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.readout dd span{font-size:.75rem;color:var(--muted)}
+.readout .x{border-color:var(--ax-x)}.readout .y{border-color:var(--ax-y)}.readout .z{border-color:var(--ax-z)}.readout .a{border-color:var(--accent)}.readout .v{border-color:var(--var)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;right:10px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;width:max-content;margin:4px 0}
+.mlabel{align-self:center;font-family:var(--f-mono);font-weight:600;padding-right:10px}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(var(--cols,4),auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+.alert{font-size:.9rem;border-left:3px solid var(--warn);padding:6px 10px;background:var(--warn-soft);color:var(--fg)}
+
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+.copy-msg{font-size:.88rem;color:var(--muted)}
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+
+.sol-pick{display:flex;flex-wrap:wrap;gap:6px}
+td.ok{color:var(--ok);font-weight:600}
+td.bad{color:var(--warn);font-weight:600}
+tr.sel td{background:var(--accent-soft)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="topnav" aria-label="Lab experiments"><a class="home" href="index.html">Robo<span>Kinetix</span> Lab</a><div class="exps"><a href="puma-fk.html">1 · PUMA FK</a><a href="scara-fk.html">2 · SCARA FK</a><a href="rrp-ik.html" aria-current="page">3 · RRP IK</a><a href="scara-ik.html">4 · SCARA IK</a><a href="jacobian.html">5 · Jacobian</a><a href="statics.html">6 · Statics</a><a href="dynamics.html">7 · Dynamics</a></div></nav>
+  <header class="exp">
+    <span class="eyebrow">RoboKinetix Lab · Experiment 3 · Inverse kinematics</span>
+    <h1>RRP Manipulator Inverse Kinematics</h1>
+    <p class="lead">An RRP spatial manipulator has a waist joint, a shoulder joint and a telescoping prismatic boom, like the Stanford arm without its wrist. Give it a target point in space and the simulator solves for θ₁, θ₂ and d₃. There are two solutions for almost every point, and you can switch between them.</p>
+    <div class="chips"><span class="chip">3 DOF · RRP</span><span class="chip">d₁ = 500 mm</span><span class="chip">d₃ = 250–900 mm</span><span class="chip">Closed-form solution</span></div>
+  </header>
+
+  <section class="lab">
+    <div class="panel">
+      <div class="panel-head"><h2>Target point</h2><span class="muted">Base frame, metres</span></div>
+      <div class="stack" id="tgt"></div>
+      <div class="btnrow" aria-label="Preset targets">
+        <button type="button" data-p="front">Front</button>
+        <button type="button" data-p="low">Low and left</button>
+        <button type="button" data-p="axis">On the z₀ axis</button>
+        <button type="button" data-p="far">Out of reach</button>
+      </div>
+      <div class="stack" style="gap:8px">
+        <h3>Solution to show</h3>
+        <div class="sol-pick" role="group" aria-label="IK solution">
+          <button type="button" id="sA" aria-pressed="true">A · facing the target</button>
+          <button type="button" id="sB" aria-pressed="false">B · over the top</button>
+        </div>
+      </div>
+      <dl class="readout" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="a"><dt>θ₁</dt><dd><b id="o1">0</b><span>°</span></dd></div>
+        <div class="v"><dt>θ₂</dt><dd><b id="o2">0</b><span>°</span></dd></div>
+        <div class="z"><dt>d₃</dt><dd><b id="o3">0</b> <span>m</span></dd></div>
+      </dl>
+      <p class="alert" id="warn" hidden></p>
+      <button type="button" class="primary" id="record">Add reading to observation table</button>
+    </div>
+    <div class="viewport" id="viewport">
+      <div class="vp-bar">
+        <button type="button" id="t-frames" aria-pressed="true">DH frames</button>
+        <button type="button" id="t-shell" aria-pressed="true">Reach limits</button>
+        <button type="button" id="t-ghost" aria-pressed="true">Other solution</button>
+        <button type="button" id="t-view">Reset view</button>
+      </div>
+      <div class="vp-note">Orange dot = target · faint arm = the other solution · spheres = shortest and longest boom reach</div>
+    </div>
+  </section>
+
+  <section class="sheets">
+    <div class="panel">
+      <div class="panel-head"><h2>Both solutions</h2><span class="muted">Click a row to show it</span></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Solution</th><th>θ₁ (°)</th><th>θ₂ (°)</th><th>d₃ (m)</th><th>FK error (m)</th><th>Status</th></tr></thead>
+        <tbody id="sols"></tbody>
+      </table></div>
+      <p class="check" id="check"></p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>DH parameter table</h2><span class="muted">Highlighted = joint variable</span></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Link i</th><th>θᵢ (deg)</th><th>dᵢ (m)</th><th>aᵢ (m)</th><th>αᵢ (deg)</th></tr></thead>
+        <tbody id="dh"></tbody>
+      </table></div>
+      <div class="scroll"><div class="matrix-wrap"><span class="mlabel">T₀³ =</span><div class="bracket l"></div><div class="matrix" id="mT"></div><div class="bracket r"></div></div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Observation table</h2><div class="btnrow"><button type="button" id="copy">Copy as CSV</button><button type="button" id="clear">Clear</button></div></div>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>x (m)</th><th>y (m)</th><th>z (m)</th><th>Sol.</th><th>θ₁ (°)</th><th>θ₂ (°)</th><th>d₃ (m)</th><th>FK error (m)</th></tr></thead>
+      <tbody id="obs"></tbody>
+    </table></div>
+    <p class="obs-empty" id="obs-empty">No readings yet. Pick a target and press “Add reading to observation table”.</p>
+    <p class="copy-msg" id="msg" aria-live="polite"></p>
+  </section>
+
+  <section class="theory">
+    <div class="panel">
+      <h2>Forward kinematics</h2>
+      <p>From the DH table, the tool point is</p>
+      <div class="eq">x = d₃ cos θ₁ sin θ₂
+y = d₃ sin θ₁ sin θ₂
+z = d₁ − d₃ cos θ₂</div>
+      <p>θ₂ = 90° holds the boom horizontal. θ₂ = 180° points it straight up.</p>
+    </div>
+    <div class="panel">
+      <h2>Inverse kinematics</h2>
+      <p>Let r = √(x² + y²) and h = z − d₁. Then</p>
+      <div class="eq">d₃ = √(r² + h²)
+
+Solution A:  θ₁ = atan2(y, x)
+             θ₂ = atan2(r, −h)
+Solution B:  θ₁ = atan2(y, x) + 180°
+             θ₂ = −atan2(r, −h)</div>
+      <p>The point is reachable only if d₃ lies within the boom's stroke. When r = 0 the target is on the z₀ axis, θ₁ can take any value, and the arm is singular.</p>
+    </div>
+    <div class="panel">
+      <h2>Procedure</h2>
+      <ol>
+        <li>Press Front. Record both solutions and confirm the FK error is zero for each.</li>
+        <li>Move the target along x only. Note which joint variables change and why.</li>
+        <li>Press On the z₀ axis. Change θ₁ by hand on paper and explain why the tool does not move.</li>
+        <li>Press Out of reach. Find the boundary using the two reach spheres.</li>
+        <li>Pick a target, solve it by hand with the formulas, and compare with the table.</li>
+        <li>Explain why the d₃ value is the same for solutions A and B.</li>
+      </ol>
+    </div>
+  </section>
+  <footer>The boom stroke (250–900 mm) and base height are typical teaching values and can be changed in the ROBOT object in the source.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* shared three.js scene scaffold for RoboKinetix 3D experiments */
+function makeScene(vp,opt){
+  opt=opt||{};
+  if(!window.THREE){const d=document.createElement('div');d.className='vp-fallback';d.textContent='The 3D view could not load (it needs an internet connection). The calculations and tables still work.';vp.appendChild(d);return null;}
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  vp.insertBefore(renderer.domElement,vp.firstChild);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(38,4/3,0.01,30);camera.up.set(0,0,1);
+  const HOME_CAM=new THREE.Vector3(...opt.cam),HOME_TGT=new THREE.Vector3(...opt.tgt);
+  camera.position.copy(HOME_CAM);
+  let controls=null;
+  if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.copy(HOME_TGT);controls.enableDamping=true;controls.update();}else camera.lookAt(HOME_TGT);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,0.85));
+  const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(2,-1.5,3);scene.add(sun);
+  const M={
+    base:new THREE.MeshStandardMaterial({metalness:0.35,roughness:0.55}),
+    link:new THREE.MeshStandardMaterial({metalness:0.15,roughness:0.45}),
+    ghost:new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.6,transparent:true,opacity:0.22,depthWrite:false}),
+    dark:new THREE.MeshStandardMaterial({color:0x2a3036,metalness:0.4,roughness:0.6}),
+    steel:new THREE.MeshStandardMaterial({color:0xb8c0c6,metalness:0.8,roughness:0.3}),
+    target:new THREE.MeshBasicMaterial(),
+    bad:new THREE.MeshBasicMaterial({color:0xd0453b}),
+    shell:new THREE.MeshBasicMaterial({wireframe:true,transparent:true,opacity:0.12}),
+    line:new THREE.LineBasicMaterial(),
+    dash:new THREE.LineDashedMaterial({dashSize:0.02,gapSize:0.015}),
+  };
+  const grid=new THREE.GridHelper(opt.grid||2,(opt.grid||2)*10);grid.rotation.x=Math.PI/2;scene.add(grid);
+  const unitCyl=new THREE.CylinderGeometry(1,1,1,28),Y=new THREE.Vector3(0,1,0);
+  function seg(r,m,parent){const s=new THREE.Mesh(unitCyl,m);s.userData.r=r;(parent||scene).add(s);return s;}
+  function place(s,a,b){const d=new THREE.Vector3().subVectors(b,a),L=d.length();if(L<1e-6){s.visible=false;return;}s.visible=true;s.position.copy(a).addScaledVector(d,0.5);s.quaternion.setFromUnitVectors(Y,d.normalize());s.scale.set(s.userData.r,L,s.userData.r);}
+  function cyl(r,h,m){const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,36),m);c.rotation.x=Math.PI/2;return c;}
+  function frameGroup(size){const g=new THREE.Group();g.matrixAutoUpdate=false;scene.add(g);const a=new THREE.AxesHelper(size||0.1);g.add(a);g.userData.axes=a;return g;}
+  function setMatrix(g,T){g.matrix.set(T[0][0],T[0][1],T[0][2],T[0][3],T[1][0],T[1][1],T[1][2],T[1][3],T[2][0],T[2][1],T[2][2],T[2][3],0,0,0,1);g.matrixWorldNeedsUpdate=true;}
+  function trail(n){const N=n||600,p=new Float32Array(N*3);let k=0,last=null;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setDrawRange(0,0);const l=new THREE.Line(g,M.line);scene.add(l);
+    return {line:l,push(v){if(last&&last.distanceTo(v)<0.003)return;if(k<N){p.set([v.x,v.y,v.z],k*3);k++;}else{p.copyWithin(0,3);p.set([v.x,v.y,v.z],(N-1)*3);}g.attributes.position.needsUpdate=true;g.setDrawRange(0,k);last=v.clone();},clear(){k=0;last=null;g.setDrawRange(0,0);}};}
+  const hooks=[];
+  function theme(){
+    scene.background=new THREE.Color(css('--scene'));M.base.color.set(css('--base3d'));M.link.color.set(css('--link3d'));M.ghost.color.set(css('--var'));
+    M.target.color.set(css('--accent'));M.shell.color.set(css('--ws3d'));M.line.color.set(css('--trail3d'));M.dash.color.set(css('--muted'));
+    const gc=new THREE.Color(css('--grid3d'));if(grid.geometry.attributes.color){const c=grid.geometry.attributes.color;for(let i=0;i<c.count;i++)c.setXYZ(i,gc.r,gc.g,gc.b);c.needsUpdate=true;}
+    hooks.forEach(h=>h(css));
+  }
+  theme();
+  try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);}catch(e){}
+  new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  function resize(){const w=vp.clientWidth,h=vp.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(vp);resize();
+  function resetView(){camera.position.copy(HOME_CAM);if(controls){controls.target.copy(HOME_TGT);controls.update();}else camera.lookAt(HOME_TGT);}
+  const frames=[];let lt=performance.now();
+  function loop(now){requestAnimationFrame(loop);const dt=Math.min(0.05,(now-lt)/1000);lt=now;frames.forEach(f=>f(dt));if(controls)controls.update();renderer.render(scene,camera);}
+  requestAnimationFrame(loop);
+  return {THREE,scene,M,seg,place,cyl,frameGroup,setMatrix,trail,onTheme:h=>{hooks.push(h);h(css);},onFrame:f=>frames.push(f),resetView};
+}
+const V3=(T,c)=>new THREE.Vector3(T[0][c],T[1][c],T[2][c]);
+function dhA(t,d,a,al){const c=Math.cos(t),s=Math.sin(t),ca=Math.cos(al),sa=Math.sin(al);return[[c,-s*ca,s*sa,a*c],[s,c*ca,-c*sa,a*s],[0,sa,ca,d],[0,0,0,1]];}
+function mul4(A,B){const C=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=A[i][k]*B[k][j];C[i][j]=s;}return C;}
+function chain(As){const T=[[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]];As.forEach((A,i)=>T.push(mul4(T[i],A)));return T;}
+const wrapDeg=a=>((a+180)%360+360)%360-180;
+const fx=(v,n)=>(Math.abs(v)<0.5*Math.pow(10,-n)?0:v).toFixed(n);
+function bindJoint(host,c,get,set){
+  const d=document.createElement('div');d.className='joint';
+  d.innerHTML=`<label for="${c.k}-n">${c.label} <small>${c.name}</small></label>
+  <span class="num"><input type="number" id="${c.k}-n" min="${c.min}" max="${c.max}" step="${c.step}"><span class="unit">${c.unit}</span></span>
+  <input type="range" id="${c.k}-r" min="${c.min}" max="${c.max}" step="${c.step}" aria-label="${c.name}">
+  <span class="lim"><span>${c.min}</span><span>${c.max}</span></span>`;
+  host.appendChild(d);
+  const r=d.querySelector('[type=range]'),n=d.querySelector('[type=number]');
+  const apply=v=>{if(!isFinite(v))v=get();v=Math.min(c.max,Math.max(c.min,v));set(v);r.value=v;n.value=+v.toFixed(c.dp??2);};
+  r.addEventListener('input',()=>apply(+r.value));n.addEventListener('change',()=>apply(+n.value));
+  const sync=()=>{const v=get();r.value=v;n.value=+(+v).toFixed(c.dp??2);};sync();
+  return sync;
+}
+function copyCSV(rows,header,msgEl){
+  if(!rows.length){msgEl.textContent='Add at least one reading first.';return;}
+  const csv=[header,...rows.map(r=>r.join(','))].join('\n');
+  const fail=()=>{msgEl.textContent='Copy was blocked here. Select the table and copy it manually.';};
+  try{navigator.clipboard.writeText(csv).then(()=>{msgEl.textContent=`Copied ${rows.length} reading${rows.length>1?'s':''} as CSV.`;},fail);}catch(e){fail();}
+}
+
+(function(){
+const DEG=Math.PI/180;
+const ROBOT={d1:0.5,dmin:0.25,dmax:0.9};
+const tgt={x:0.45,y:0.30,z:0.75};
+const PRE={front:[0.6,0,0.6],low:[-0.25,0.4,0.15],axis:[0,0,1.1],far:[0.9,0.6,0.9]};
+let sel=0;
+const cur=[0,90*DEG,0.5];
+
+function fk(q){return chain([dhA(q[0],ROBOT.d1,0,90*DEG),dhA(q[1],0,0,90*DEG),dhA(0,q[2],0,0)]);}
+function ik(p){
+  const r=Math.hypot(p.x,p.y),h=p.z-ROBOT.d1,d3=Math.hypot(r,h),t2=Math.atan2(r,-h);
+  const t1=r<1e-6?cur[0]:Math.atan2(p.y,p.x);
+  const reach=d3>=ROBOT.dmin-1e-9&&d3<=ROBOT.dmax+1e-9;
+  return [{q:[t1,t2,d3],reach,axis:r<1e-6},{q:[wrapDeg((t1+Math.PI)/DEG)*DEG,-t2,d3],reach,axis:r<1e-6}];
+}
+function err(q){const T=fk(q)[3];return Math.hypot(T[0][3]-tgt.x,T[1][3]-tgt.y,T[2][3]-tgt.z);}
+
+const host=document.getElementById('tgt'),syncs=[];
+[{k:'x',label:'x',name:'Target x',min:-1,max:1,step:0.01},{k:'y',label:'y',name:'Target y',min:-1,max:1,step:0.01},{k:'z',label:'z',name:'Target z',min:-0.4,max:1.4,step:0.01}]
+ .forEach(c=>syncs.push(bindJoint(host,{...c,unit:'m',dp:3},()=>tgt[c.k],v=>{tgt[c.k]=v;update();})));
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{[tgt.x,tgt.y,tgt.z]=PRE[b.dataset.p];syncs.forEach(s=>s());update();}));
+function pick(i){sel=i;document.getElementById('sA').setAttribute('aria-pressed',String(i===0));document.getElementById('sB').setAttribute('aria-pressed',String(i===1));update();}
+document.getElementById('sA').addEventListener('click',()=>pick(0));
+document.getElementById('sB').addEventListener('click',()=>pick(1));
+
+let sols=ik(tgt);
+function update(){
+  sols=ik(tgt);const s=sols[sel];
+  const w=document.getElementById('warn');
+  if(!s.reach){w.hidden=false;w.textContent=`Out of reach: this point needs d₃ = ${fx(s.q[2],3)} m, but the boom only extends from ${ROBOT.dmin} to ${ROBOT.dmax} m. The arm stays at its last reachable pose.`;}
+  else if(s.axis){w.hidden=false;w.textContent='Singular: the target is on the z₀ axis, so any θ₁ reaches it. The arm keeps its current θ₁.';}
+  else w.hidden=true;
+  const show=s.reach?s.q:goal;
+  if(s.reach)goal=s.q.slice();
+  document.getElementById('o1').textContent=fx(show[0]/DEG,2);document.getElementById('o2').textContent=fx(show[1]/DEG,2);document.getElementById('o3').textContent=fx(show[2],4);
+  document.getElementById('sols').innerHTML=sols.map((o,i)=>`<tr class="${i===sel?'sel':''}" data-i="${i}" style="cursor:pointer"><td>${'AB'[i]}</td><td>${fx(o.q[0]/DEG,2)}</td><td>${fx(o.q[1]/DEG,2)}</td><td>${fx(o.q[2],4)}</td><td>${o.reach?err(o.q).toExponential(1):'–'}</td><td class="${o.reach?'ok':'bad'}">${o.reach?'Reachable':'Out of reach'}</td></tr>`).join('');
+  document.querySelectorAll('#sols tr').forEach(tr=>tr.addEventListener('click',()=>pick(+tr.dataset.i)));
+  const r=Math.hypot(tgt.x,tgt.y),h=tgt.z-ROBOT.d1;
+  document.getElementById('check').textContent=`r = √(x² + y²) = ${fx(r,4)} m, h = z − d₁ = ${fx(h,4)} m, so d₃ = √(r² + h²) = ${fx(Math.hypot(r,h),4)} m for both solutions.`;
+  const T=fk(show);
+  document.getElementById('dh').innerHTML=[[show[0]/DEG,ROBOT.d1,0,90,0],[show[1]/DEG,0,0,90,0],[0,show[2],0,0,1]].map((L,i)=>`<tr><td>${i+1}</td><td class="${L[4]?'':'var'}">${fx(L[0],2)}${L[4]?'':' *'}</td><td class="${L[4]?'var':''}">${fx(L[1],4)}${L[4]?' *':''}</td><td>${L[2]}</td><td>${L[3]}</td></tr>`).join('');
+  document.getElementById('mT').innerHTML=T[3].map((row,i)=>row.map((v,j)=>`<span class="${j===3&&i<3?'pos':''}">${fx(v,4)}</span>`).join('')).join('');
+  if(view)view.target(s.reach);
+}
+let goal=cur.slice();
+
+/* observations */
+const obs=[];
+document.getElementById('record').addEventListener('click',()=>{const s=sols[sel];if(!s.reach){document.getElementById('msg').textContent='This target is out of reach, so there is no solution to log.';return;}obs.push([tgt.x,tgt.y,tgt.z].map(v=>v.toFixed(3)).concat(['AB'[sel],fx(s.q[0]/DEG,2),fx(s.q[1]/DEG,2),fx(s.q[2],4),err(s.q).toExponential(1)]));renderObs();});
+function renderObs(){document.getElementById('obs').innerHTML=obs.map((o,i)=>`<tr><td>${i+1}</td>${o.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');document.getElementById('obs-empty').hidden=obs.length>0;}
+document.getElementById('clear').addEventListener('click',()=>{obs.length=0;renderObs();document.getElementById('msg').textContent='';});
+document.getElementById('copy').addEventListener('click',()=>copyCSV(obs.map((o,i)=>[i+1,...o]),'n,x_m,y_m,z_m,solution,theta1_deg,theta2_deg,d3_m,fk_error_m',document.getElementById('msg')));
+
+/* 3D */
+let view=null;
+function init3D(){
+  const S=makeScene(document.getElementById('viewport'),{cam:[2.2,-1.9,1.5],tgt:[0.15,0,0.5],grid:2.4});if(!S)return;
+  const {THREE,scene,M}=S;
+  const plate=S.cyl(0.16,0.03,M.dark);plate.position.z=0.015;scene.add(plate);
+  function arm(ghost){
+    const mb=ghost?M.ghost:M.base,ml=ghost?M.ghost:M.link,md=ghost?M.ghost:M.dark,ms=ghost?M.ghost:M.steel;
+    const ped=S.seg(0.08,mb),sleeve=S.seg(0.05,ml),rod=S.seg(0.022,ms);
+    const G=[0,1,2,3].map(k=>S.frameGroup(k===0?0.22:0.12));
+    if(ghost)G.forEach(g=>g.userData.axes.visible=false);
+    const h1=S.cyl(0.11,0.08,md);h1.position.z=0.07;G[0].add(h1);
+    const h2=S.cyl(0.075,0.2,md);G[1].add(h2);
+    const tip=new THREE.Mesh(new THREE.SphereGeometry(0.025,16,12),ml);G[3].add(tip);
+    return {G,pose(q){const T=fk(q);T.forEach((t,k)=>S.setMatrix(G[k],t));
+      const o0=V3(T[0],3),o1=V3(T[1],3),z2=V3(T[2],2),o3=V3(T[3],3);
+      S.place(ped,o0,o1);S.place(sleeve,o1,o1.clone().addScaledVector(z2,Math.min(0.24,q[2])));S.place(rod,o1,o3);return o3;}};
+  }
+  const main=arm(false),ghost=arm(true);
+  const centre=new THREE.Vector3(0,0,ROBOT.d1);
+  const shells=[ROBOT.dmin,ROBOT.dmax].map(r=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,32,18),M.shell);m.position.copy(centre);scene.add(m);return m;});
+  const tm=new THREE.Mesh(new THREE.SphereGeometry(0.022,18,14),M.target);scene.add(tm);
+  const dropG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),drop=new THREE.Line(dropG,M.dash);scene.add(drop);
+  const tr=S.trail(500);
+  const toggle=(id,fn)=>{const b=document.getElementById(id);b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));fn(on);});};
+  let showGhost=true;
+  toggle('t-frames',on=>main.G.forEach(g=>g.userData.axes.visible=on));
+  toggle('t-shell',on=>shells.forEach(s=>s.visible=on));
+  toggle('t-ghost',on=>{showGhost=on;});
+  document.getElementById('t-view').addEventListener('click',S.resetView);
+  S.onFrame(dt=>{
+    const k=1-Math.exp(-dt*6);
+    let d0=wrapDeg((goal[0]-cur[0])/DEG)*DEG;cur[0]+=d0*k;cur[1]+=(goal[1]-cur[1])*k;cur[2]+=(goal[2]-cur[2])*k;
+    tr.push(main.pose(cur));
+    const o=sols[1-sel];ghost.G.forEach(g=>g.visible=showGhost&&o.reach);
+    ghost.pose(o.q);
+    const p=new THREE.Vector3(tgt.x,tgt.y,tgt.z);tm.position.copy(p);tm.material=sols[sel].reach?M.target:M.bad;
+    dropG.setFromPoints([p,new THREE.Vector3(p.x,p.y,0)]);drop.computeLineDistances();
+  });
+  view={target(){}};
+}
+init3D();
+update();renderObs();
+})();
+</script>
+</body>
+</html>

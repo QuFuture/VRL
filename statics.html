@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Differential Motion and Statics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* RoboKinetix Lab shared styles. Layout: lab bench — instrument panel left, simulation cell right, worksheets below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --ax-x:#d0453b; --ax-y:#3c9a4a; --ax-z:#3b6fd0; --warn:#b3261e; --warn-soft:#fbe3e0; --ok:#2e7d32;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.topnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.topnav .home{font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.05rem;color:var(--fg);text-decoration:none;margin-right:auto}
+.topnav .home span{color:var(--accent)}
+.topnav .exps{display:flex;flex-wrap:wrap;gap:6px}
+.topnav .exps a{font-size:.85rem;font-weight:600;text-decoration:none;color:var(--muted);padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.topnav .exps a:hover{color:var(--fg);border-color:var(--accent)}
+.topnav .exps a[aria-current="page"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+
+header.exp{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header.exp .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head .muted{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);min-width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.readout div{border-top:2px solid var(--line);padding-top:6px;min-width:0}
+.readout dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.readout dd{margin:0;font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.readout dd span{font-size:.75rem;color:var(--muted)}
+.readout .x{border-color:var(--ax-x)}.readout .y{border-color:var(--ax-y)}.readout .z{border-color:var(--ax-z)}.readout .a{border-color:var(--accent)}.readout .v{border-color:var(--var)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;right:10px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;width:max-content;margin:4px 0}
+.mlabel{align-self:center;font-family:var(--f-mono);font-weight:600;padding-right:10px}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(var(--cols,4),auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+.alert{font-size:.9rem;border-left:3px solid var(--warn);padding:6px 10px;background:var(--warn-soft);color:var(--fg)}
+
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+.copy-msg{font-size:.88rem;color:var(--muted)}
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+
+.viewport.plane{aspect-ratio:1/1;min-height:300px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+.cmp td:first-child{font-family:var(--f-body);font-weight:600}
+.mats{display:flex;flex-wrap:wrap;gap:8px 28px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="topnav" aria-label="Lab experiments"><a class="home" href="index.html">Robo<span>Kinetix</span> Lab</a><div class="exps"><a href="puma-fk.html">1 · PUMA FK</a><a href="scara-fk.html">2 · SCARA FK</a><a href="rrp-ik.html">3 · RRP IK</a><a href="scara-ik.html">4 · SCARA IK</a><a href="jacobian.html">5 · Jacobian</a><a href="statics.html" aria-current="page">6 · Statics</a><a href="dynamics.html">7 · Dynamics</a></div></nav>
+  <header class="exp">
+    <span class="eyebrow">RoboKinetix Lab · Experiment 6 · Differential motion and statics</span>
+    <h1>Differential Motion and Statics</h1>
+    <p class="lead">The same Jacobian answers two questions. For small joint motions δq, the tool moves by δX ≈ J δq. And to push on the world with a force F, the joints must supply torques τ = Jᵀ F. This experiment uses a three-link planar arm, so the tool has a position (x, y) and an orientation φ.</p>
+    <div class="chips"><span class="chip">3 DOF · RRR planar</span><span class="chip">δX = J δq</span><span class="chip">τ = Jᵀ F</span><span class="chip">det J = l₁l₂ sin θ₂</span></div>
+  </header>
+
+  <section class="lab">
+    <div class="panel">
+      <div class="panel-head"><h2>Pose</h2><span class="muted" id="badge">Regular pose</span></div>
+      <div class="stack" id="pose"></div>
+      <details open style="border-top:1px solid var(--line);padding-top:10px">
+        <summary style="cursor:pointer;font-family:var(--f-display);font-stretch:85%;font-weight:700">Small joint motion δq</summary>
+        <div class="stack" id="dq" style="margin-top:12px"></div>
+      </details>
+      <details open style="border-top:1px solid var(--line);padding-top:10px">
+        <summary style="cursor:pointer;font-family:var(--f-display);font-stretch:85%;font-weight:700">Force at the tool F</summary>
+        <div class="stack" id="force" style="margin-top:12px"></div>
+      </details>
+      <div class="btnrow" aria-label="Presets">
+        <button type="button" data-p="load">Hold a 2 kg load</button>
+        <button type="button" data-p="wall">Push on a wall</button>
+        <button type="button" data-p="sing">Stretched arm</button>
+        <button type="button" data-p="reset">Reset</button>
+      </div>
+    </div>
+    <div class="stack" style="gap:10px;min-width:0">
+      <div class="viewport plane" id="vp"><canvas id="cv" aria-label="Three-link arm with force and joint torques"></canvas>
+        <div class="vp-bar"><button type="button" id="t-ell" aria-pressed="true">Velocity and force ellipses</button></div>
+        <div class="vp-note">Grid 0.1 m · dashed arm = pose after δq · force drawn at 4 mm per N</div>
+      </div>
+      <div class="legend"><span><i style="background:var(--link3d)"></i>Arm</span><span><i style="background:var(--accent)"></i>Tool force F</span><span><i style="background:var(--ax-z)"></i>Joint torque (+ counter-clockwise)</span><span><i style="background:var(--ax-x)"></i>Joint torque (−)</span><span><i style="background:var(--var)"></i>Velocity ellipse</span><span><i style="background:var(--ax-y)"></i>Force ellipse</span></div>
+    </div>
+  </section>
+
+  <section class="sheets">
+    <div class="panel">
+      <div class="panel-head"><h2>Differential motion</h2></div>
+      <div class="scroll"><div class="matrix-wrap"><span class="mlabel">J =</span><div class="bracket l"></div><div class="matrix" id="mJ" style="--cols:3"></div><div class="bracket r"></div></div></div>
+      <p class="caption">Rows are x, y (m/rad) and φ (rad/rad). Columns are joints 1, 2, 3.</p>
+      <div class="scroll"><table class="cmp">
+        <thead><tr><th></th><th>δx (mm)</th><th>δy (mm)</th><th>δφ (°)</th></tr></thead>
+        <tbody>
+          <tr><td>Predicted J δq</td><td id="p1"></td><td id="p2"></td><td id="p3"></td></tr>
+          <tr><td>Actual FK(q + δq) − FK(q)</td><td id="a1"></td><td id="a2"></td><td id="a3"></td></tr>
+          <tr><td>Difference</td><td id="e1"></td><td id="e2"></td><td id="e3"></td></tr>
+        </tbody>
+      </table></div>
+      <p class="check" id="dcheck"></p>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Statics</h2></div>
+      <div class="scroll"><div class="mats">
+        <div class="matrix-wrap"><span class="mlabel">Jᵀ =</span><div class="bracket l"></div><div class="matrix" id="mJt" style="--cols:3"></div><div class="bracket r"></div></div>
+        <div class="matrix-wrap"><span class="mlabel">τ =</span><div class="bracket l"></div><div class="matrix" id="mtau" style="--cols:1"></div><div class="bracket r"></div></div>
+      </div></div>
+      <p class="caption">τ in N·m, for F = (Fₓ, F_y, M_z) applied by the tool on its surroundings.</p>
+      <dl class="readout">
+        <div class="a"><dt>Joint work τᵀ δq</dt><dd><b id="wq">0</b> <span>mJ</span></dd></div>
+        <div class="v"><dt>Tool work Fᵀ δX (actual)</dt><dd><b id="wx">0</b> <span>mJ</span></dd></div>
+      </dl>
+      <p class="check" id="scheck"></p>
+    </div>
+  </section>
+
+  <section class="theory">
+    <div class="panel">
+      <h2>Theory</h2>
+      <div class="eq">x = l₁c₁ + l₂c₁₂ + l₃c₁₂₃
+y = l₁s₁ + l₂s₁₂ + l₃s₁₂₃
+φ = θ₁ + θ₂ + θ₃
+
+    ⎡ −l₁s₁−l₂s₁₂−l₃s₁₂₃  −l₂s₁₂−l₃s₁₂₃  −l₃s₁₂₃ ⎤
+J = ⎢  l₁c₁+l₂c₁₂+l₃c₁₂₃   l₂c₁₂+l₃c₁₂₃   l₃c₁₂₃ ⎥
+    ⎣  1                   1              1      ⎦</div>
+      <p>Differential motion: δX = J δq. This is exact only in the limit, so the difference from the true motion grows with |δq|².</p>
+    </div>
+    <div class="panel">
+      <h2>Statics by virtual work</h2>
+      <p>With no losses, the work done by the joints equals the work done at the tool for any small motion:</p>
+      <div class="eq">τᵀ δq = Fᵀ δX = Fᵀ J δq   for every δq
+⇒  τ = Jᵀ F</div>
+      <p>At a singularity J loses rank, so some forces need zero joint torque. A fully stretched arm can resist a pull along its length with no motor effort, because the structure carries it.</p>
+    </div>
+    <div class="panel">
+      <h2>Procedure</h2>
+      <ol>
+        <li>Set δθ₁ = 1°. Compare predicted and actual δX, then repeat with 10° and note how the difference grows.</li>
+        <li>Press Hold a 2 kg load. Record τ and explain why τ₁ is largest.</li>
+        <li>Change θ₁ with the load held. Find the pose that needs the smallest τ₁.</li>
+        <li>Press Push on a wall and compare the torques with the load case.</li>
+        <li>Press Stretched arm and apply a force along the arm. Explain why τ is almost zero.</li>
+        <li>Turn on the ellipses and explain why the force ellipse is long where the velocity ellipse is short.</li>
+      </ol>
+    </div>
+  </section>
+  <footer>Gravity on the links is ignored here so that only the tool force acts. Experiment 7 adds link masses and gravity.</footer>
+</div>
+
+<script>
+/* shared three.js scene scaffold for RoboKinetix 3D experiments */
+function makeScene(vp,opt){
+  opt=opt||{};
+  if(!window.THREE){const d=document.createElement('div');d.className='vp-fallback';d.textContent='The 3D view could not load (it needs an internet connection). The calculations and tables still work.';vp.appendChild(d);return null;}
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  vp.insertBefore(renderer.domElement,vp.firstChild);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(38,4/3,0.01,30);camera.up.set(0,0,1);
+  const HOME_CAM=new THREE.Vector3(...opt.cam),HOME_TGT=new THREE.Vector3(...opt.tgt);
+  camera.position.copy(HOME_CAM);
+  let controls=null;
+  if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.copy(HOME_TGT);controls.enableDamping=true;controls.update();}else camera.lookAt(HOME_TGT);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,0.85));
+  const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(2,-1.5,3);scene.add(sun);
+  const M={
+    base:new THREE.MeshStandardMaterial({metalness:0.35,roughness:0.55}),
+    link:new THREE.MeshStandardMaterial({metalness:0.15,roughness:0.45}),
+    ghost:new THREE.MeshStandardMaterial({metalness:0.1,roughness:0.6,transparent:true,opacity:0.22,depthWrite:false}),
+    dark:new THREE.MeshStandardMaterial({color:0x2a3036,metalness:0.4,roughness:0.6}),
+    steel:new THREE.MeshStandardMaterial({color:0xb8c0c6,metalness:0.8,roughness:0.3}),
+    target:new THREE.MeshBasicMaterial(),
+    bad:new THREE.MeshBasicMaterial({color:0xd0453b}),
+    shell:new THREE.MeshBasicMaterial({wireframe:true,transparent:true,opacity:0.12}),
+    line:new THREE.LineBasicMaterial(),
+    dash:new THREE.LineDashedMaterial({dashSize:0.02,gapSize:0.015}),
+  };
+  const grid=new THREE.GridHelper(opt.grid||2,(opt.grid||2)*10);grid.rotation.x=Math.PI/2;scene.add(grid);
+  const unitCyl=new THREE.CylinderGeometry(1,1,1,28),Y=new THREE.Vector3(0,1,0);
+  function seg(r,m,parent){const s=new THREE.Mesh(unitCyl,m);s.userData.r=r;(parent||scene).add(s);return s;}
+  function place(s,a,b){const d=new THREE.Vector3().subVectors(b,a),L=d.length();if(L<1e-6){s.visible=false;return;}s.visible=true;s.position.copy(a).addScaledVector(d,0.5);s.quaternion.setFromUnitVectors(Y,d.normalize());s.scale.set(s.userData.r,L,s.userData.r);}
+  function cyl(r,h,m){const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,36),m);c.rotation.x=Math.PI/2;return c;}
+  function frameGroup(size){const g=new THREE.Group();g.matrixAutoUpdate=false;scene.add(g);const a=new THREE.AxesHelper(size||0.1);g.add(a);g.userData.axes=a;return g;}
+  function setMatrix(g,T){g.matrix.set(T[0][0],T[0][1],T[0][2],T[0][3],T[1][0],T[1][1],T[1][2],T[1][3],T[2][0],T[2][1],T[2][2],T[2][3],0,0,0,1);g.matrixWorldNeedsUpdate=true;}
+  function trail(n){const N=n||600,p=new Float32Array(N*3);let k=0,last=null;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setDrawRange(0,0);const l=new THREE.Line(g,M.line);scene.add(l);
+    return {line:l,push(v){if(last&&last.distanceTo(v)<0.003)return;if(k<N){p.set([v.x,v.y,v.z],k*3);k++;}else{p.copyWithin(0,3);p.set([v.x,v.y,v.z],(N-1)*3);}g.attributes.position.needsUpdate=true;g.setDrawRange(0,k);last=v.clone();},clear(){k=0;last=null;g.setDrawRange(0,0);}};}
+  const hooks=[];
+  function theme(){
+    scene.background=new THREE.Color(css('--scene'));M.base.color.set(css('--base3d'));M.link.color.set(css('--link3d'));M.ghost.color.set(css('--var'));
+    M.target.color.set(css('--accent'));M.shell.color.set(css('--ws3d'));M.line.color.set(css('--trail3d'));M.dash.color.set(css('--muted'));
+    const gc=new THREE.Color(css('--grid3d'));if(grid.geometry.attributes.color){const c=grid.geometry.attributes.color;for(let i=0;i<c.count;i++)c.setXYZ(i,gc.r,gc.g,gc.b);c.needsUpdate=true;}
+    hooks.forEach(h=>h(css));
+  }
+  theme();
+  try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);}catch(e){}
+  new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  function resize(){const w=vp.clientWidth,h=vp.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(vp);resize();
+  function resetView(){camera.position.copy(HOME_CAM);if(controls){controls.target.copy(HOME_TGT);controls.update();}else camera.lookAt(HOME_TGT);}
+  const frames=[];let lt=performance.now();
+  function loop(now){requestAnimationFrame(loop);const dt=Math.min(0.05,(now-lt)/1000);lt=now;frames.forEach(f=>f(dt));if(controls)controls.update();renderer.render(scene,camera);}
+  requestAnimationFrame(loop);
+  return {THREE,scene,M,seg,place,cyl,frameGroup,setMatrix,trail,onTheme:h=>{hooks.push(h);h(css);},onFrame:f=>frames.push(f),resetView};
+}
+const V3=(T,c)=>new THREE.Vector3(T[0][c],T[1][c],T[2][c]);
+function dhA(t,d,a,al){const c=Math.cos(t),s=Math.sin(t),ca=Math.cos(al),sa=Math.sin(al);return[[c,-s*ca,s*sa,a*c],[s,c*ca,-c*sa,a*s],[0,sa,ca,d],[0,0,0,1]];}
+function mul4(A,B){const C=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=A[i][k]*B[k][j];C[i][j]=s;}return C;}
+function chain(As){const T=[[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]];As.forEach((A,i)=>T.push(mul4(T[i],A)));return T;}
+const wrapDeg=a=>((a+180)%360+360)%360-180;
+const fx=(v,n)=>(Math.abs(v)<0.5*Math.pow(10,-n)?0:v).toFixed(n);
+function bindJoint(host,c,get,set){
+  const d=document.createElement('div');d.className='joint';
+  d.innerHTML=`<label for="${c.k}-n">${c.label} <small>${c.name}</small></label>
+  <span class="num"><input type="number" id="${c.k}-n" min="${c.min}" max="${c.max}" step="${c.step}"><span class="unit">${c.unit}</span></span>
+  <input type="range" id="${c.k}-r" min="${c.min}" max="${c.max}" step="${c.step}" aria-label="${c.name}">
+  <span class="lim"><span>${c.min}</span><span>${c.max}</span></span>`;
+  host.appendChild(d);
+  const r=d.querySelector('[type=range]'),n=d.querySelector('[type=number]');
+  const apply=v=>{if(!isFinite(v))v=get();v=Math.min(c.max,Math.max(c.min,v));set(v);r.value=v;n.value=+v.toFixed(c.dp??2);};
+  r.addEventListener('input',()=>apply(+r.value));n.addEventListener('change',()=>apply(+n.value));
+  const sync=()=>{const v=get();r.value=v;n.value=+(+v).toFixed(c.dp??2);};sync();
+  return sync;
+}
+function copyCSV(rows,header,msgEl){
+  if(!rows.length){msgEl.textContent='Add at least one reading first.';return;}
+  const csv=[header,...rows.map(r=>r.join(','))].join('\n');
+  const fail=()=>{msgEl.textContent='Copy was blocked here. Select the table and copy it manually.';};
+  try{navigator.clipboard.writeText(csv).then(()=>{msgEl.textContent=`Copied ${rows.length} reading${rows.length>1?'s':''} as CSV.`;},fail);}catch(e){fail();}
+}
+
+(function(){
+const DEG=Math.PI/180;
+const L=[0.4,0.3,0.15];
+const S={t1:30,t2:60,t3:-40,d1:4,d2:0,d3:0,fx:0,fy:-19.6,mz:0,ell:true};
+const DEF={...S};
+const PRE={load:{fx:0,fy:-19.6,mz:0},wall:{fx:30,fy:0,mz:0},sing:{t1:20,t2:1,t3:0,fx:25*Math.cos(20*DEG),fy:25*Math.sin(20*DEG),mz:0}};
+function fk(q){const a=q[0],b=q[0]+q[1],c=b+q[2];return [L[0]*Math.cos(a)+L[1]*Math.cos(b)+L[2]*Math.cos(c),L[0]*Math.sin(a)+L[1]*Math.sin(b)+L[2]*Math.sin(c),c];}
+function pts(q){const a=q[0],b=q[0]+q[1],c=b+q[2];const p1=[L[0]*Math.cos(a),L[0]*Math.sin(a)],p2=[p1[0]+L[1]*Math.cos(b),p1[1]+L[1]*Math.sin(b)],p3=[p2[0]+L[2]*Math.cos(c),p2[1]+L[2]*Math.sin(c)];return [[0,0],p1,p2,p3];}
+function jac(q){const a=q[0],b=q[0]+q[1],c=b+q[2];const s1=Math.sin(a),s12=Math.sin(b),s123=Math.sin(c),c1=Math.cos(a),c12=Math.cos(b),c123=Math.cos(c);
+  return [[-L[0]*s1-L[1]*s12-L[2]*s123,-L[1]*s12-L[2]*s123,-L[2]*s123],[L[0]*c1+L[1]*c12+L[2]*c123,L[1]*c12+L[2]*c123,L[2]*c123],[1,1,1]];}
+const host={pose:document.getElementById('pose'),dq:document.getElementById('dq'),force:document.getElementById('force')};
+const syncs=[];
+const add=(h,c)=>syncs.push(bindJoint(h,c,()=>S[c.k],v=>{S[c.k]=v;draw();}));
+add(host.pose,{k:'t1',label:'θ₁',name:'Joint 1',min:-180,max:180,step:0.5,unit:'°',dp:1});
+add(host.pose,{k:'t2',label:'θ₂',name:'Joint 2',min:-180,max:180,step:0.5,unit:'°',dp:1});
+add(host.pose,{k:'t3',label:'θ₃',name:'Joint 3',min:-180,max:180,step:0.5,unit:'°',dp:1});
+add(host.dq,{k:'d1',label:'δθ₁',name:'Small change joint 1',min:-15,max:15,step:0.1,unit:'°',dp:1});
+add(host.dq,{k:'d2',label:'δθ₂',name:'Small change joint 2',min:-15,max:15,step:0.1,unit:'°',dp:1});
+add(host.dq,{k:'d3',label:'δθ₃',name:'Small change joint 3',min:-15,max:15,step:0.1,unit:'°',dp:1});
+add(host.force,{k:'fx',label:'Fₓ',name:'Force x',min:-50,max:50,step:0.1,unit:'N',dp:1});
+add(host.force,{k:'fy',label:'F_y',name:'Force y',min:-50,max:50,step:0.1,unit:'N',dp:1});
+add(host.force,{k:'mz',label:'M_z',name:'Moment about z',min:-10,max:10,step:0.1,unit:'N·m',dp:1});
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{Object.assign(S,b.dataset.p==='reset'?DEF:PRE[b.dataset.p]);syncs.forEach(s=>s());draw();}));
+const eb=document.getElementById('t-ell');eb.addEventListener('click',()=>{S.ell=!S.ell;eb.setAttribute('aria-pressed',String(S.ell));draw();});
+
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),vp=document.getElementById('vp');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let W=0,H=0,sc=1,ox=0,oy=0;
+function resize(){const r=cv.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);W=r.width;H=r.height;sc=Math.min(W,H)/(2*0.98);ox=W/2;oy=H/2;draw();}
+const X=x=>ox+x*sc,Y=y=>oy-y*sc;
+function arrow(x0,y0,x1,y1,col,w){ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();const a=Math.atan2(y1-y0,x1-x0),l=Math.hypot(x1-x0,y1-y0);if(l<3)return;const h=Math.min(11,l*0.5);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-h*Math.cos(a-0.4),y1-h*Math.sin(a-0.4));ctx.lineTo(x1-h*Math.cos(a+0.4),y1-h*Math.sin(a+0.4));ctx.closePath();ctx.fill();}
+function torqueArc(x,y,tau,scale){
+  if(Math.abs(tau)<1e-3)return;
+  const col=tau>0?css('--ax-z'):css('--ax-x'),span=Math.min(Math.abs(tau)/scale,1)*1.7*Math.PI,r=24,start=-Math.PI/2;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=3;ctx.beginPath();
+  if(tau>0)ctx.arc(x,y,r,start,start-span,true);else ctx.arc(x,y,r,start,start+span,false);
+  ctx.stroke();
+  const e=tau>0?start-span:start+span,ex=x+r*Math.cos(e),ey=y+r*Math.sin(e),tg=e+(tau>0?-Math.PI/2:Math.PI/2);
+  ctx.beginPath();ctx.moveTo(ex+8*Math.cos(tg),ey+8*Math.sin(tg));ctx.lineTo(ex+5*Math.cos(tg+2.2),ey+5*Math.sin(tg+2.2));ctx.lineTo(ex+5*Math.cos(tg-2.2),ey+5*Math.sin(tg-2.2));ctx.closePath();ctx.fill();
+}
+function ellipse(cx,cy,a,b,ang,col){ctx.save();ctx.translate(cx,cy);ctx.rotate(-ang);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=1.8;ctx.globalAlpha=0.1;ctx.beginPath();ctx.ellipse(0,0,Math.max(a,0.5),Math.max(b,0.5),0,0,2*Math.PI);ctx.fill();ctx.globalAlpha=1;ctx.stroke();ctx.restore();}
+
+function draw(){
+  const q=[S.t1*DEG,S.t2*DEG,S.t3*DEG],dq=[S.d1*DEG,S.d2*DEG,S.d3*DEG],F=[S.fx,S.fy,S.mz];
+  const J=jac(q),P=fk(q),Pd=fk(q.map((v,i)=>v+dq[i]));
+  const pred=J.map(r=>r[0]*dq[0]+r[1]*dq[1]+r[2]*dq[2]),act=[Pd[0]-P[0],Pd[1]-P[1],Pd[2]-P[2]];
+  const tau=[0,1,2].map(j=>J[0][j]*F[0]+J[1][j]*F[1]+J[2][j]*F[2]);
+  // tables
+  document.getElementById('mJ').innerHTML=J.flat().map(v=>`<span>${fx(v,4)}</span>`).join('');
+  document.getElementById('mJt').innerHTML=[0,1,2].map(i=>[0,1,2].map(j=>`<span>${fx(J[j][i],4)}</span>`).join('')).join('');
+  document.getElementById('mtau').innerHTML=tau.map(v=>`<span class="pos">${fx(v,3)}</span>`).join('');
+  const mm=v=>fx(v*1000,3),dg=v=>fx(v/DEG,4);
+  [['p',pred],['a',act],['e',pred.map((v,i)=>v-act[i])]].forEach(([k,v])=>{document.getElementById(k+'1').textContent=mm(v[0]);document.getElementById(k+'2').textContent=mm(v[1]);document.getElementById(k+'3').textContent=dg(v[2]);});
+  const mag=Math.hypot(...dq),pe=Math.hypot(pred[0]-act[0],pred[1]-act[1]),pm=Math.hypot(act[0],act[1]);
+  document.getElementById('dcheck').textContent=mag<1e-9?'Set a δq to compare the linear prediction with the true motion.':`The linear prediction misses the true tool displacement by ${fx(pe*1000,3)} mm, which is ${pm>1e-9?fx(100*pe/pm,2):'–'}% of the motion. Halve δq and this error drops to about a quarter.`;
+  const wq=tau[0]*dq[0]+tau[1]*dq[1]+tau[2]*dq[2],wx=F[0]*act[0]+F[1]*act[1]+F[2]*act[2];
+  document.getElementById('wq').textContent=fx(wq*1000,3);document.getElementById('wx').textContent=fx(wx*1000,3);
+  const det=L[0]*L[1]*Math.sin(q[1]);
+  document.getElementById('scheck').textContent=`Virtual work: τᵀδq and FᵀδX agree to first order in δq. det J = l₁l₂ sin θ₂ = ${fx(det,4)} m², and |τ| = ${fx(Math.hypot(...tau),3)} N·m.`;
+  const near=Math.abs(Math.sin(q[1]))<0.05,b=document.getElementById('badge');b.textContent=near?'Near singular':'Regular pose';b.style.color=near?css('--warn'):'';
+  if(!W)return;
+  // canvas
+  const gr=css('--grid3d'),fg=css('--fg'),mu=css('--muted');
+  ctx.fillStyle=css('--scene');ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=gr;ctx.globalAlpha=0.6;ctx.lineWidth=1;ctx.beginPath();
+  for(let k=-12;k<=12;k++){const x=X(k*0.1),y=Y(k*0.1);if(x>=0&&x<=W){ctx.moveTo(x,0);ctx.lineTo(x,H);}if(y>=0&&y<=H){ctx.moveTo(0,y);ctx.lineTo(W,y);}}
+  ctx.stroke();ctx.globalAlpha=1;
+  ctx.setLineDash([6,5]);ctx.strokeStyle=mu;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(ox,oy,(L[0]+L[1]+L[2])*sc,0,2*Math.PI);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=css('--base3d');ctx.fillRect(ox-24,oy+8,48,10);
+  const pp=pts(q),pd=pts(q.map((v,i)=>v+dq[i]));
+  if(mag>1e-9){ctx.setLineDash([5,4]);ctx.strokeStyle=mu;ctx.lineWidth=3;ctx.beginPath();pd.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1])));ctx.stroke();ctx.setLineDash([]);}
+  ctx.lineCap='round';ctx.strokeStyle=css('--link3d');[14,10,7].forEach((w,i)=>{ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(X(pp[i][0]),Y(pp[i][1]));ctx.lineTo(X(pp[i+1][0]),Y(pp[i+1][1]));ctx.stroke();});
+  if(S.ell){
+    const a=J[0][0]**2+J[0][1]**2+J[0][2]**2,bb=J[0][0]*J[1][0]+J[0][1]*J[1][1]+J[0][2]*J[1][2],c=J[1][0]**2+J[1][1]**2+J[1][2]**2;
+    const m=(a+c)/2,d=Math.sqrt(((a-c)/2)**2+bb*bb),s1=Math.sqrt(m+d),s2=Math.sqrt(Math.max(m-d,0)),ang=0.5*Math.atan2(2*bb,a-c);
+    const tx=X(pp[3][0]),ty=Y(pp[3][1]);
+    ellipse(tx,ty,s1*0.25*sc,s2*0.25*sc,ang,css('--var'));
+    const k=0.02,cap=0.35;ellipse(tx,ty,Math.min(k/s1,cap)*sc,Math.min(s2>1e-6?k/s2:cap,cap)*sc,ang,css('--ax-y'));
+  }
+  const fm=Math.max(...tau.map(Math.abs),1);
+  pp.slice(0,3).forEach((p,i)=>{torqueArc(X(p[0]),Y(p[1]),tau[i],fm);});
+  pp.slice(0,3).forEach((p,i)=>{ctx.fillStyle=css('--panel');ctx.strokeStyle=fg;ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),i?6:8,0,2*Math.PI);ctx.fill();ctx.stroke();
+    ctx.fillStyle=fg;ctx.font='600 12px '+css('--f-mono');ctx.fillText(`τ${'₁₂₃'[i]} ${fx(tau[i],2)}`,X(p[0])+30,Y(p[1])-26);});
+  const tx=X(pp[3][0]),ty=Y(pp[3][1]);
+  arrow(tx,ty,tx+F[0]*0.004*sc,ty-F[1]*0.004*sc,css('--accent'),3);
+  if(Math.abs(F[2])>1e-3)torqueArc(tx,ty,F[2]*4,Math.max(Math.abs(F[2]*4),1)*1.5);
+  ctx.fillStyle=fg;ctx.beginPath();ctx.arc(tx,ty,4,0,2*Math.PI);ctx.fill();
+}
+new ResizeObserver(resize).observe(vp);
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);}catch(e){}
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+resize();
+})();
+</script>
+</body>
+</html>
