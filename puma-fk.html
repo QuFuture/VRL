@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PUMA 560 Forward Kinematics</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* RoboKinetix Lab shared styles. Layout: lab bench — instrument panel left, simulation cell right, worksheets below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --ax-x:#d0453b; --ax-y:#3c9a4a; --ax-z:#3b6fd0; --warn:#b3261e; --warn-soft:#fbe3e0; --ok:#2e7d32;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.topnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.topnav .home{font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.05rem;color:var(--fg);text-decoration:none;margin-right:auto}
+.topnav .home span{color:var(--accent)}
+.topnav .exps{display:flex;flex-wrap:wrap;gap:6px}
+.topnav .exps a{font-size:.85rem;font-weight:600;text-decoration:none;color:var(--muted);padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.topnav .exps a:hover{color:var(--fg);border-color:var(--accent)}
+.topnav .exps a[aria-current="page"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+
+header.exp{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header.exp .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head .muted{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);min-width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.readout div{border-top:2px solid var(--line);padding-top:6px;min-width:0}
+.readout dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.readout dd{margin:0;font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.readout dd span{font-size:.75rem;color:var(--muted)}
+.readout .x{border-color:var(--ax-x)}.readout .y{border-color:var(--ax-y)}.readout .z{border-color:var(--ax-z)}.readout .a{border-color:var(--accent)}.readout .v{border-color:var(--var)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;right:10px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;width:max-content;margin:4px 0}
+.mlabel{align-self:center;font-family:var(--f-mono);font-weight:600;padding-right:10px}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(var(--cols,4),auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+.alert{font-size:.9rem;border-left:3px solid var(--warn);padding:6px 10px;background:var(--warn-soft);color:var(--fg)}
+
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+.copy-msg{font-size:.88rem;color:var(--muted)}
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="topnav" aria-label="Lab experiments"><a class="home" href="index.html">Robo<span>Kinetix</span> Lab</a><div class="exps"><a href="puma-fk.html" aria-current="page">1 · PUMA FK</a><a href="scara-fk.html">2 · SCARA FK</a><a href="rrp-ik.html">3 · RRP IK</a><a href="scara-ik.html">4 · SCARA IK</a><a href="jacobian.html">5 · Jacobian</a><a href="statics.html">6 · Statics</a><a href="dynamics.html">7 · Dynamics</a></div></nav>
+  <header class="exp">
+    <span class="eyebrow">RoboKinetix Lab · Experiment 1 · Forward kinematics</span>
+    <h1>PUMA 560 Forward Kinematics</h1>
+    <p class="lead">The PUMA 560 is a six-joint articulated arm. The first three joints (waist, shoulder, elbow) place the wrist, and the last three (a spherical wrist) orient the tool. Set the six joint angles and read the tool pose from T₀⁶.</p>
+    <div class="chips">
+      <span class="chip">6 DOF · RRRRRR</span>
+      <span class="chip">a₂ = 431.8 mm</span>
+      <span class="chip">a₃ = 20.3 mm</span>
+      <span class="chip">d₃ = 150.05 mm</span>
+      <span class="chip">d₄ = 431.8 mm</span>
+    </div>
+  </header>
+
+  <section class="lab">
+    <div class="panel" aria-labelledby="inputs-h">
+      <div class="panel-head"><h2 id="inputs-h">Joint inputs</h2><span class="muted">Controller</span></div>
+      <div id="joints" class="stack"></div>
+      <div class="btnrow" aria-label="Preset poses">
+        <button type="button" data-preset="zero">Zero</button>
+        <button type="button" data-preset="ready">Ready</button>
+        <button type="button" data-preset="reach">Reach out</button>
+        <button type="button" data-preset="pick">Pick below</button>
+        <button type="button" data-preset="twist">Wrist twist</button>
+      </div>
+      <div class="stack" style="gap:10px">
+        <h3>Manipulator position</h3>
+        <dl class="readout">
+          <div class="x"><dt>x</dt><dd><b id="px">0</b> <span>m</span></dd></div>
+          <div class="y"><dt>y</dt><dd><b id="py">0</b> <span>m</span></dd></div>
+          <div class="z"><dt>z</dt><dd><b id="pz">0</b> <span>m</span></dd></div>
+          <div class="a"><dt>|p| from shoulder</dt><dd><b id="preach">0</b> <span>m</span></dd></div>
+        </dl>
+        <h3>Tool orientation (roll–pitch–yaw)</h3>
+        <dl class="readout" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+          <div class="x"><dt>Roll</dt><dd><b id="rr">0</b><span>°</span></dd></div>
+          <div class="y"><dt>Pitch</dt><dd><b id="rp">0</b><span>°</span></dd></div>
+          <div class="z"><dt>Yaw</dt><dd><b id="ry">0</b><span>°</span></dd></div>
+        </dl>
+        <p class="alert" id="sing" hidden>Wrist singularity: θ₅ ≈ 0, so the θ₄ and θ₆ axes line up and the wrist loses one degree of freedom.</p>
+      </div>
+      <button type="button" class="primary" id="record">Add reading to observation table</button>
+    </div>
+
+    <div class="viewport" id="viewport">
+      <div class="vp-bar">
+        <button type="button" id="t-frames" aria-pressed="true">DH frames</button>
+        <button type="button" id="t-trail" aria-pressed="true">Tool trail</button>
+        <button type="button" id="t-demo" aria-pressed="false">Demo motion</button>
+        <button type="button" id="t-view">Reset view</button>
+      </div>
+      <div class="vp-note">Drag to orbit · scroll or pinch to zoom · x red, y green, z blue</div>
+    </div>
+  </section>
+
+  <section class="sheets">
+    <div class="panel">
+      <div class="panel-head"><h2>DH parameter table</h2><span class="muted">Highlighted = joint variable</span></div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Link i</th><th>θᵢ (deg)</th><th>dᵢ (m)</th><th>aᵢ (m)</th><th>αᵢ (deg)</th></tr></thead>
+          <tbody id="dh-body"></tbody>
+        </table>
+      </div>
+      <p class="caption">Standard DH parameters for the PUMA 560 (as in Corke's Robotics Toolbox), with d₁ = 0.6718 m added so the base frame sits on the floor and d₆ = 0.0563 m to the tool flange.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Transformation matrix</h2></div>
+      <div class="tabs" role="tablist" id="mtabs"></div>
+      <p class="caption" id="mcap"></p>
+      <div class="scroll"><div class="matrix-wrap"><div class="bracket l"></div><div class="matrix" id="matrix"></div><div class="bracket r"></div></div></div>
+      <p class="check" id="check"></p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Observation table</h2>
+      <div class="btnrow"><button type="button" id="copy-csv">Copy as CSV</button><button type="button" id="clear-obs">Clear</button></div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>#</th><th>θ₁</th><th>θ₂</th><th>θ₃</th><th>θ₄</th><th>θ₅</th><th>θ₆</th><th>x (m)</th><th>y (m)</th><th>z (m)</th><th>Roll</th><th>Pitch</th><th>Yaw</th></tr></thead>
+        <tbody id="obs-body"></tbody>
+      </table>
+    </div>
+    <p class="obs-empty" id="obs-empty">No readings yet. Set a pose and press “Add reading to observation table”.</p>
+    <p class="copy-msg" id="copy-msg" aria-live="polite"></p>
+  </section>
+
+  <section class="theory">
+    <div class="panel">
+      <h2>Theory</h2>
+      <p>Each link transform uses the standard DH convention:</p>
+      <div class="eq">Aᵢ = Rot(z,θᵢ)·Trans(z,dᵢ)·Trans(x,aᵢ)·Rot(x,αᵢ)</div>
+      <p>The tool pose is the product of all six:</p>
+      <div class="eq">T₀⁶ = A₁A₂A₃A₄A₅A₆ = ⎡ R  p ⎤
+                    ⎣ 0  1 ⎦</div>
+      <p>Roll–pitch–yaw angles come from R using the Z-Y-X convention:</p>
+      <div class="eq">yaw   = atan2(r₂₁, r₁₁)
+pitch = atan2(−r₃₁, √(r₃₂² + r₃₃²))
+roll  = atan2(r₃₂, r₃₃)</div>
+    </div>
+    <div class="panel">
+      <h2>Procedure</h2>
+      <ol>
+        <li>Press Zero. The upper arm points along x₀ and the forearm points up. Note the tool position.</li>
+        <li>Press Ready. The whole arm points straight up. Explain the change in z using a₂ and d₄.</li>
+        <li>Change only θ₁. Confirm that z and the horizontal distance from the base axis stay fixed.</li>
+        <li>Change θ₄, θ₅ or θ₆ alone. The wrist centre (frame 4 origin) stays put and only the orientation and the d₆ offset move.</li>
+        <li>Set θ₅ to 0 and change θ₄ and θ₆ in opposite directions. The tool pose does not change. This is the wrist singularity.</li>
+        <li>Compute T₀³ by hand for one pose and compare with the T₀³ tab.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>How the 3D view is drawn</h2>
+      <ul>
+        <li>The arm is drawn from the computed frames themselves. Each link is a d-segment along zᵢ₋₁ followed by an a-segment along xᵢ.</li>
+        <li>Joint housings sit on each zᵢ₋₁ axis, so you can see which axis each joint turns about.</li>
+        <li>The 15 cm sideways jog between shoulder and forearm is the d₃ shoulder offset.</li>
+        <li>If a DH value were wrong, the drawn arm would be wrong in exactly the same way.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>Dimensions follow the published PUMA 560 kinematic model. Joint limits are those of the real arm.</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const DEG=Math.PI/180;
+// standard DH: [d, a, alpha(deg)]; theta = joint variable
+const LINKS=[[0.6718,0,90],[0,0.4318,0],[0.15005,0.0203,-90],[0.4318,0,90],[0,0,-90],[0.0563,0,0]];
+const JOINTS=[
+  {key:'q1',label:'θ₁',name:'Waist',        min:-160,max:160},
+  {key:'q2',label:'θ₂',name:'Shoulder',     min:-45, max:225},
+  {key:'q3',label:'θ₃',name:'Elbow',        min:-225,max:45},
+  {key:'q4',label:'θ₄',name:'Wrist roll',   min:-110,max:170},
+  {key:'q5',label:'θ₅',name:'Wrist bend',   min:-100,max:100},
+  {key:'q6',label:'θ₆',name:'Wrist swivel', min:-266,max:266},
+];
+const PRESETS={zero:[0,0,0,0,0,0],ready:[0,90,-90,0,0,0],reach:[0,0,-90,0,0,0],pick:[0,20,-200,0,-30,0],twist:[-40,45,-180,30,-60,90]};
+const q=[25,35,-160,0,-45,0];
+
+function dh(t,d,a,al){const c=Math.cos(t),s=Math.sin(t),ca=Math.cos(al),sa=Math.sin(al);return[[c,-s*ca,s*sa,a*c],[s,c*ca,-c*sa,a*s],[0,sa,ca,d],[0,0,0,1]];}
+function mul(A,B){const C=[[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=A[i][k]*B[k][j];C[i][j]=s;}return C;}
+const I4=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+function solve(){
+  const A=LINKS.map((L,i)=>dh(q[i]*DEG,L[0],L[1],L[2]*DEG));
+  const T=[I4];A.forEach((a,i)=>T.push(mul(T[i],a)));
+  return {A,T};
+}
+const clean=v=>Math.abs(v)<5e-6?0:v;
+const f=(v,n)=>clean(v).toFixed(n);
+function rpy(M){
+  const yaw=Math.atan2(M[1][0],M[0][0]), pitch=Math.atan2(-M[2][0],Math.hypot(M[2][1],M[2][2])), roll=Math.atan2(M[2][1],M[2][2]);
+  return [roll/DEG,pitch/DEG,yaw/DEG].map(clean);
+}
+
+/* inputs */
+const jointsEl=document.getElementById('joints');
+JOINTS.forEach((j,i)=>{
+  const div=document.createElement('div');div.className='joint';
+  div.innerHTML=`<label for="${j.key}-num">${j.label} <small>${j.name}</small></label>
+    <span class="num"><input type="number" id="${j.key}-num" min="${j.min}" max="${j.max}" step="0.5"><span class="unit">°</span></span>
+    <input type="range" id="${j.key}-range" min="${j.min}" max="${j.max}" step="0.5" aria-label="${j.name}">
+    <span class="lim"><span>${j.min}°</span><span>${j.max}°</span></span>`;
+  jointsEl.appendChild(div);
+  const r=div.querySelector('input[type=range]'),n=div.querySelector('input[type=number]');
+  r.addEventListener('input',()=>{setDemo(false);q[i]=+r.value;n.value=r.value;update();});
+  n.addEventListener('change',()=>{setDemo(false);let v=+n.value;if(isNaN(v))v=q[i];v=Math.min(j.max,Math.max(j.min,v));q[i]=v;n.value=v;r.value=v;update();});
+});
+function syncInputs(){JOINTS.forEach((j,i)=>{const v=Math.round(q[i]*2)/2;document.getElementById(j.key+'-range').value=v;document.getElementById(j.key+'-num').value=+v.toFixed(1);});}
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{setDemo(false);PRESETS[b.dataset.preset].forEach((v,i)=>q[i]=v);syncInputs();update();}));
+
+/* tabs */
+const TABS=[
+  {id:'1',label:'A₁',cap:'A₁: waist rotation about z₀, raised by d₁ to shoulder height, then α₁ = 90° turns z₁ horizontal.'},
+  {id:'2',label:'A₂',cap:'A₂: shoulder rotation about z₁ and the upper arm a₂ along x₂.'},
+  {id:'3',label:'A₃',cap:'A₃: elbow rotation about z₂, the shoulder offset d₃ and the small a₃ link, then α₃ = −90°.'},
+  {id:'4',label:'A₄',cap:'A₄: wrist roll about z₃ with the forearm length d₄.'},
+  {id:'5',label:'A₅',cap:'A₅: wrist bend about z₄.'},
+  {id:'6',label:'A₆',cap:'A₆: wrist swivel about z₅ and the flange offset d₆.'},
+  {id:'T3',label:'T₀³',cap:'T₀³ = A₁A₂A₃: the arm (position) part. Joints 1–3 alone place the wrist.'},
+  {id:'T',label:'T₀⁶',cap:'T₀⁶ = A₁A₂A₃A₄A₅A₆: tool pose in the base frame. The last column is the tool position.'},
+];
+let tab='T';
+const tabsEl=document.getElementById('mtabs');
+TABS.forEach(t=>{const b=document.createElement('button');b.type='button';b.textContent=t.label;b.id='tab-'+t.id;b.addEventListener('click',()=>{tab=t.id;update();});tabsEl.appendChild(b);});
+
+/* observations */
+const obs=[];const obsBody=document.getElementById('obs-body');
+function renderObs(){obsBody.innerHTML=obs.map((o,i)=>`<tr><td>${i+1}</td>${o.q.map(v=>`<td>${v.toFixed(1)}</td>`).join('')}${o.p.map(v=>`<td>${v}</td>`).join('')}${o.r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');document.getElementById('obs-empty').hidden=obs.length>0;}
+document.getElementById('record').addEventListener('click',()=>{const M=solve().T[6];obs.push({q:q.slice(),p:[0,1,2].map(i=>f(M[i][3],4)),r:rpy(M).map(v=>v.toFixed(2))});renderObs();});
+document.getElementById('clear-obs').addEventListener('click',()=>{obs.length=0;renderObs();document.getElementById('copy-msg').textContent='';});
+document.getElementById('copy-csv').addEventListener('click',()=>{
+  const msg=document.getElementById('copy-msg');if(!obs.length){msg.textContent='Add at least one reading first.';return;}
+  const csv=['n,q1,q2,q3,q4,q5,q6,x_m,y_m,z_m,roll_deg,pitch_deg,yaw_deg',...obs.map((o,i)=>[i+1,...o.q,...o.p,...o.r].join(','))].join('\n');
+  const fail=()=>{msg.textContent='Copy was blocked here. Select the table and copy it manually.';};
+  try{navigator.clipboard.writeText(csv).then(()=>{msg.textContent=`Copied ${obs.length} reading${obs.length>1?'s':''} as CSV.`;},fail);}catch(e){fail();}
+});
+
+/* update */
+function update(){
+  const {A,T}=solve(),M=T[6];
+  ['px','py','pz'].forEach((id,i)=>document.getElementById(id).textContent=f(M[i][3],4));
+  document.getElementById('preach').textContent=f(Math.hypot(M[0][3],M[1][3],M[2][3]-LINKS[0][0]),4);
+  const r=rpy(M);['rr','rp','ry'].forEach((id,i)=>document.getElementById(id).textContent=r[i].toFixed(2));
+  document.getElementById('sing').hidden=Math.abs(q[4])>=2;
+  document.getElementById('dh-body').innerHTML=LINKS.map((L,i)=>`<tr><td>${i+1}</td><td class="var">${f(q[i],1)} *</td><td>${f(L[0],4)}</td><td>${f(L[1],4)}</td><td>${L[2]}</td></tr>`).join('');
+  const mat=tab==='T'?M:tab==='T3'?T[3]:A[+tab-1];
+  document.getElementById('matrix').innerHTML=mat.map((row,i)=>row.map((v,j)=>`<span class="${j===3&&i<3?'pos':''}">${f(v,4)}</span>`).join('')).join('');
+  document.getElementById('mcap').textContent=TABS.find(t=>t.id===tab).cap;
+  TABS.forEach(t=>document.getElementById('tab-'+t.id).setAttribute('aria-pressed',String(t.id===tab)));
+  const R=[0,1,2].map(i=>[0,1,2].map(j=>M[i][j]));
+  let orth=0;for(let i=0;i<3;i++)for(let j=0;j<3;j++){let s=0;for(let k=0;k<3;k++)s+=R[k][i]*R[k][j];orth=Math.max(orth,Math.abs(s-(i===j?1:0)));}
+  const det=R[0][0]*(R[1][1]*R[2][2]-R[1][2]*R[2][1])-R[0][1]*(R[1][0]*R[2][2]-R[1][2]*R[2][0])+R[0][2]*(R[1][0]*R[2][1]-R[1][1]*R[2][0]);
+  const w=T[4];
+  document.getElementById('check').textContent=`Check: RᵀR = I to within ${orth.toExponential(1)}, det R = ${det.toFixed(4)}. Wrist centre (frame 4 origin) = (${f(w[0][3],4)}, ${f(w[1][3],4)}, ${f(w[2][3],4)}) m depends only on θ₁, θ₂, θ₃.`;
+  if(window.__puma)window.__puma.pose(T);
+}
+
+/* 3D */
+function init3D(){
+  const vp=document.getElementById('viewport');
+  if(!window.THREE){const d=document.createElement('div');d.className='vp-fallback';d.textContent='The 3D view could not load (it needs an internet connection). The matrices and readings still work.';vp.appendChild(d);return;}
+  const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  vp.insertBefore(renderer.domElement,vp.firstChild);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(38,4/3,0.01,30);camera.up.set(0,0,1);
+  const HOME_CAM=new THREE.Vector3(2.3,-2.0,1.7),HOME_TGT=new THREE.Vector3(0.25,0,0.65);
+  camera.position.copy(HOME_CAM);
+  let controls=null;
+  if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.copy(HOME_TGT);controls.enableDamping=true;controls.update();}else camera.lookAt(HOME_TGT);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,0.85));
+  const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(2,-1.5,3);scene.add(sun);
+  const mBase=new THREE.MeshStandardMaterial({metalness:0.35,roughness:0.55});
+  const mLink=new THREE.MeshStandardMaterial({metalness:0.15,roughness:0.45});
+  const mDark=new THREE.MeshStandardMaterial({color:0x2a3036,metalness:0.4,roughness:0.6});
+  const mSteel=new THREE.MeshStandardMaterial({color:0xb8c0c6,metalness:0.8,roughness:0.3});
+  const grid=new THREE.GridHelper(2.4,24);grid.rotation.x=Math.PI/2;scene.add(grid);
+  const plate=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.18,0.03,40),mDark);plate.rotation.x=Math.PI/2;plate.position.z=0.015;scene.add(plate);
+
+  // segments between points (world)
+  const unitCyl=new THREE.CylinderGeometry(1,1,1,28);
+  function seg(r,m){const s=new THREE.Mesh(unitCyl,m);s.userData.r=r;scene.add(s);return s;}
+  const Y=new THREE.Vector3(0,1,0);
+  function place(s,a,b){const d=new THREE.Vector3().subVectors(b,a),L=d.length();if(L<1e-6){s.visible=false;return;}s.visible=true;s.position.copy(a).addScaledVector(d,0.5);s.quaternion.setFromUnitVectors(Y,d.normalize());s.scale.set(s.userData.r,L,s.userData.r);}
+  const R_D=[0.085,0.05,0.045,0.04,0.03,0.022], R_A=[0.06,0.055,0.04,0.03,0.03,0.03];
+  const dSeg=R_D.map((r,i)=>seg(r,i===0?mBase:mLink)), aSeg=R_A.map(r=>seg(r,mLink));
+  // frames 0..6 as groups
+  const G=[];for(let k=0;k<=6;k++){const g=new THREE.Group();g.matrixAutoUpdate=false;scene.add(g);G.push(g);}
+  // joint housings on z_{i-1}
+  const HJ=[[0.11,0.08],[0.075,0.2],[0.06,0.14],[0.05,0.09],[0.042,0.08],[0.034,0.06]];
+  HJ.forEach(([r,h],i)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,36),i===0?mDark:(i%2?mDark:mBase));c.rotation.x=Math.PI/2;if(i===0)c.position.z=0.03+h/2;G[i].add(c);});
+  // gripper on frame 6
+  const palm=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.02,0.015),mDark);palm.position.z=0.008;G[6].add(palm);
+  [-1,1].forEach(sg=>{const fg=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.016,0.06),mSteel);fg.position.set(sg*0.032,0,0.045);G[6].add(fg);});
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(0.01,16,12),new THREE.MeshBasicMaterial({color:0xd0453b}));G[6].add(tip);
+  // axes
+  const axes=G.map((g,k)=>{const a=new THREE.AxesHelper(k===0?0.25:k===6?0.14:0.11);g.add(a);return a;});
+  // trail
+  const N=600,tp=new Float32Array(N*3);let tn=0,last=null;
+  const tg=new THREE.BufferGeometry();tg.setAttribute('position',new THREE.BufferAttribute(tp,3));tg.setDrawRange(0,0);
+  const tm=new THREE.LineBasicMaterial();const trail=new THREE.Line(tg,tm);scene.add(trail);
+
+  function theme(){
+    scene.background=new THREE.Color(css('--scene'));mBase.color.set(css('--base3d'));mLink.color.set(css('--link3d'));tm.color.set(css('--trail3d'));
+    const gc=new THREE.Color(css('--grid3d'));if(grid.geometry.attributes.color){const c=grid.geometry.attributes.color;for(let i=0;i<c.count;i++)c.setXYZ(i,gc.r,gc.g,gc.b);c.needsUpdate=true;}
+  }
+  theme();
+  try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);}catch(e){}
+  new MutationObserver(theme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  function resize(){const w=vp.clientWidth,h=vp.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(vp);resize();
+
+  const v3=(M,c)=>new THREE.Vector3(M[0][c],M[1][c],M[2][c]);
+  function pose(T){
+    T.forEach((M,k)=>{G[k].matrix.set(M[0][0],M[0][1],M[0][2],M[0][3],M[1][0],M[1][1],M[1][2],M[1][3],M[2][0],M[2][1],M[2][2],M[2][3],0,0,0,1);G[k].matrixWorldNeedsUpdate=true;});
+    for(let i=1;i<=6;i++){
+      const o0=v3(T[i-1],3),z0=v3(T[i-1],2),o1=v3(T[i],3);
+      const P=o0.clone().addScaledVector(z0,LINKS[i-1][0]);
+      place(dSeg[i-1],o0,P);place(aSeg[i-1],P,o1);
+    }
+    const p=v3(T[6],3);
+    if(!last||last.distanceTo(p)>0.003){if(tn<N){tp.set([p.x,p.y,p.z],tn*3);tn++;}else{tp.copyWithin(0,3);tp.set([p.x,p.y,p.z],(N-1)*3);}tg.attributes.position.needsUpdate=true;tg.setDrawRange(0,tn);last=p;}
+  }
+  const toggle=(id,fn)=>{const b=document.getElementById(id);b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));fn(on);});};
+  toggle('t-frames',on=>axes.forEach(a=>a.visible=on));
+  toggle('t-trail',on=>{trail.visible=on;if(!on){tn=0;tg.setDrawRange(0,0);last=null;}});
+  document.getElementById('t-view').addEventListener('click',()=>{camera.position.copy(HOME_CAM);if(controls){controls.target.copy(HOME_TGT);controls.update();}else camera.lookAt(HOME_TGT);});
+  function loop(){requestAnimationFrame(loop);if(demo.on)demoStep();if(controls)controls.update();renderer.render(scene,camera);}
+  loop();
+  window.__puma={pose};
+}
+
+/* demo */
+const demo={on:false,t:0};
+function setDemo(on){demo.on=on;const b=document.getElementById('t-demo');if(b)b.setAttribute('aria-pressed',String(on));}
+function demoStep(){demo.t+=0.01;const t=demo.t;
+  q[0]=60*Math.sin(t);q[1]=40+30*Math.sin(0.8*t+0.4);q[2]=-160+40*Math.sin(1.1*t);q[3]=60*Math.sin(0.7*t);q[4]=-45+40*Math.sin(1.3*t);q[5]=120*Math.sin(0.5*t);
+  syncInputs();update();}
+document.getElementById('t-demo').addEventListener('click',()=>setDemo(!demo.on));
+
+init3D();syncInputs();update();renderObs();
+})();
+</script>
+</body>
+</html>

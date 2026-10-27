@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jacobian and Singularities</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* RoboKinetix Lab shared styles. Layout: lab bench — instrument panel left, simulation cell right, worksheets below */
+:root{
+  --bg:#eceff1; --panel:#fafbfc; --line:#d2d9de; --fg:#182027; --muted:#56636e;
+  --accent:#c4590a; --accent-soft:#f7e6d6; --var:#1f6f7c; --var-soft:#dcedef;
+  --scene:#e2e7eb; --base3d:#4a5560; --link3d:#ee7f1c; --grid3d:#b5c0c8; --ws3d:#2f7d8a; --trail3d:#1f6f7c;
+  --ax-x:#d0453b; --ax-y:#3c9a4a; --ax-z:#3b6fd0; --warn:#b3261e; --warn-soft:#fbe3e0; --ok:#2e7d32;
+  --f-display:"Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body:"Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#101417; --panel:#171c20; --line:#2a3239; --fg:#e3e8ec; --muted:#95a2ac;
+  --accent:#f29a4a; --accent-soft:#3a2818; --var:#5cc0cd; --var-soft:#15343a;
+  --scene:#0c1013; --base3d:#7c8994; --link3d:#f08a2c; --grid3d:#28323a; --ws3d:#4fb3c2; --trail3d:#5cc0cd;
+  --ax-x:#ef6b5f; --ax-y:#62c46f; --ax-z:#6b98ef; --warn:#ff8a80; --warn-soft:#3d1c1a; --ok:#7bd17f;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);font-weight:800;letter-spacing:-.01em}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+.eyebrow{font-family:var(--f-display);font-stretch:80%;font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+.topnav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.topnav .home{font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.05rem;color:var(--fg);text-decoration:none;margin-right:auto}
+.topnav .home span{color:var(--accent)}
+.topnav .exps{display:flex;flex-wrap:wrap;gap:6px}
+.topnav .exps a{font-size:.85rem;font-weight:600;text-decoration:none;color:var(--muted);padding:3px 10px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.topnav .exps a:hover{color:var(--fg);border-color:var(--accent)}
+.topnav .exps a[aria-current="page"]{color:var(--fg);border-color:var(--accent);background:var(--accent-soft)}
+
+header.exp{display:flex;flex-direction:column;gap:10px;max-width:72ch}
+header.exp .lead{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{font-family:var(--f-mono);font-size:.78rem;padding:3px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+
+.lab{display:grid;grid-template-columns:minmax(280px,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.lab{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head .muted{font-size:.85rem}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+.joint{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center}
+.joint label{font-weight:600;display:flex;gap:8px;align-items:baseline}
+.joint label small{font-weight:400;color:var(--muted);font-size:.8rem}
+.joint .num{display:flex;align-items:center;gap:4px}
+.joint input[type=number]{width:84px;font-family:var(--f-mono);font-size:.9rem;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);text-align:right}
+.joint .unit{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);min-width:22px}
+.joint input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--accent)}
+.joint .lim{grid-column:1 / -1;display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:.72rem;color:var(--muted);margin-top:-4px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+button,select{font-family:var(--f-body);font-size:.88rem;font-weight:600;padding:6px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px}
+
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+.readout div{border-top:2px solid var(--line);padding-top:6px;min-width:0}
+.readout dt{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-family:var(--f-display);font-stretch:85%;font-weight:600}
+.readout dd{margin:0;font-family:var(--f-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.readout dd span{font-size:.75rem;color:var(--muted)}
+.readout .x{border-color:var(--ax-x)}.readout .y{border-color:var(--ax-y)}.readout .z{border-color:var(--ax-z)}.readout .a{border-color:var(--accent)}.readout .v{border-color:var(--var)}
+
+.viewport{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--scene);aspect-ratio:4/3;min-height:340px;max-width:100%}
+.viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+.vp-bar{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vp-bar button{pointer-events:auto;font-size:.8rem;padding:4px 10px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.vp-note{position:absolute;left:10px;bottom:8px;right:10px;font-size:.75rem;color:var(--muted);pointer-events:none}
+.vp-fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.sheets{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.82rem;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+th:first-child,td:first-child{text-align:left}
+td{font-family:var(--f-mono);font-size:.86rem}
+td.var{color:var(--var);font-weight:600;background:var(--var-soft)}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button{font-family:var(--f-mono);font-weight:600;font-size:.82rem}
+.matrix-wrap{display:flex;align-items:stretch;width:max-content;margin:4px 0}
+.mlabel{align-self:center;font-family:var(--f-mono);font-weight:600;padding-right:10px}
+.bracket{width:8px;border:2px solid var(--fg)}
+.bracket.l{border-right:none}.bracket.r{border-left:none}
+.matrix{display:grid;grid-template-columns:repeat(var(--cols,4),auto);gap:6px 18px;padding:8px 12px;font-family:var(--f-mono);font-size:.92rem;font-variant-numeric:tabular-nums;text-align:right}
+.matrix .pos{color:var(--accent);font-weight:600}
+.caption{font-size:.88rem;color:var(--muted)}
+.check{font-size:.88rem;border-left:3px solid var(--var);padding:6px 10px;background:var(--var-soft)}
+.alert{font-size:.9rem;border-left:3px solid var(--warn);padding:6px 10px;background:var(--warn-soft);color:var(--fg)}
+
+.theory{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:900px){.theory{grid-template-columns:minmax(0,1fr)}}
+.theory .panel p,.theory .panel li{font-size:.95rem}
+.theory ol,.theory ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.eq{font-family:var(--f-mono);font-size:.85rem;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;line-height:1.7}
+footer{font-size:.82rem;color:var(--muted)}
+.copy-msg{font-size:.88rem;color:var(--muted)}
+.obs-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+
+.viewport.plane{aspect-ratio:1/1;min-height:300px}
+.chart{width:100%;height:170px;display:block}
+.modes{display:flex;flex-direction:column;gap:8px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
+.badge.ok{color:var(--ok);border-color:var(--ok)}
+.badge.bad{color:var(--warn);border-color:var(--warn);background:var(--warn-soft)}
+.mats{display:flex;flex-wrap:wrap;gap:8px 28px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <nav class="topnav" aria-label="Lab experiments"><a class="home" href="index.html">Robo<span>Kinetix</span> Lab</a><div class="exps"><a href="puma-fk.html">1 · PUMA FK</a><a href="scara-fk.html">2 · SCARA FK</a><a href="rrp-ik.html">3 · RRP IK</a><a href="scara-ik.html">4 · SCARA IK</a><a href="jacobian.html" aria-current="page">5 · Jacobian</a><a href="statics.html">6 · Statics</a><a href="dynamics.html">7 · Dynamics</a></div></nav>
+  <header class="exp">
+    <span class="eyebrow">RoboKinetix Lab · Experiment 5 · Differential kinematics</span>
+    <h1>Jacobian and Singularities</h1>
+    <p class="lead">The Jacobian J(q) maps joint rates to tool velocity: v = J q̇. On a two-link planar arm (the first two links of a SCARA) you can see this map as an ellipse at the tool, and watch it flatten into a line when the arm reaches a singular pose.</p>
+    <div class="chips"><span class="chip">2 DOF · RR planar</span><span class="chip">v = J(q) q̇</span><span class="chip">det J = l₁l₂ sin θ₂</span></div>
+  </header>
+
+  <section class="lab">
+    <div class="panel">
+      <div class="panel-head"><h2>Arm and rates</h2><span class="badge ok" id="badge">Regular pose</span></div>
+      <div class="stack" id="pose-ctrls"></div>
+      <div class="modes">
+        <h3>Mode</h3>
+        <div class="seg" role="group" aria-label="Velocity mode">
+          <button type="button" id="m-fwd" aria-pressed="true">Joint rates → tool velocity</button>
+          <button type="button" id="m-inv" aria-pressed="false">Tool velocity → joint rates</button>
+        </div>
+      </div>
+      <div class="stack" id="rate-ctrls"></div>
+      <div class="btnrow">
+        <button type="button" class="primary" id="run">Run motion</button>
+        <button type="button" id="reset">Reset</button>
+        <button type="button" id="p-sing">Stretched (θ₂ = 0)</button>
+        <button type="button" id="p-fold">Folded (θ₂ = 180°)</button>
+      </div>
+      <p class="alert" id="run-msg" hidden></p>
+    </div>
+
+    <div class="stack" style="gap:10px;min-width:0">
+      <div class="viewport plane" id="vp"><canvas id="cv" aria-label="Two-link arm with velocity ellipse"></canvas>
+        <div class="vp-note" style="bottom:8px">Grid 0.1 m · arrow and ellipse drawn as distance moved in 0.3 s · drag the tool to move the arm</div>
+      </div>
+      <div class="legend"><span><i style="background:var(--link3d)"></i>Arm</span><span><i style="background:var(--var)"></i>Velocity ellipse (‖q̇‖ = 1 rad/s)</span><span><i style="background:var(--accent)"></i>Tool velocity v</span><span><i style="background:var(--grid3d)"></i>Workspace boundary</span></div>
+    </div>
+  </section>
+
+  <section class="sheets">
+    <div class="panel">
+      <div class="panel-head"><h2>Jacobian</h2><span class="muted">Live values</span></div>
+      <div class="scroll"><div class="mats">
+        <div class="matrix-wrap"><span class="mlabel">J =</span><div class="bracket l"></div><div class="matrix" id="mJ" style="--cols:2"></div><div class="bracket r"></div></div>
+        <div class="matrix-wrap"><span class="mlabel">J⁻¹ =</span><div class="bracket l"></div><div class="matrix" id="mJi" style="--cols:2"></div><div class="bracket r"></div></div>
+      </div></div>
+      <dl class="readout">
+        <div class="a"><dt>det J</dt><dd><b id="det">0</b> <span>m²</span></dd></div>
+        <div class="v"><dt>Manipulability w</dt><dd><b id="w">0</b> <span>m²</span></dd></div>
+        <div class="x"><dt>σ₁ (major)</dt><dd><b id="s1">0</b> <span>m/rad</span></dd></div>
+        <div class="y"><dt>σ₂ (minor)</dt><dd><b id="s2">0</b> <span>m/rad</span></dd></div>
+        <div class="z"><dt>Condition number κ</dt><dd><b id="kap">0</b></dd></div>
+        <div class="a"><dt>Tool position</dt><dd style="font-size:1rem"><b id="pos">0</b> <span>m</span></dd></div>
+      </dl>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Velocities</h2></div>
+      <dl class="readout">
+        <div class="v"><dt>θ̇₁</dt><dd><b id="qd1">0</b> <span>°/s</span></dd></div>
+        <div class="v"><dt>θ̇₂</dt><dd><b id="qd2">0</b> <span>°/s</span></dd></div>
+        <div class="x"><dt>ẋ</dt><dd><b id="vx">0</b> <span>m/s</span></dd></div>
+        <div class="y"><dt>ẏ</dt><dd><b id="vy">0</b> <span>m/s</span></dd></div>
+      </dl>
+      <h3>Manipulability across θ₂</h3>
+      <canvas class="chart" id="chart" aria-label="Manipulability w against elbow angle"></canvas>
+      <p class="caption">w = |l₁l₂ sin θ₂| does not depend on θ₁. It is largest with the elbow at ±90° and zero when the arm is fully stretched or folded.</p>
+    </div>
+  </section>
+
+  <section class="theory">
+    <div class="panel">
+      <h2>Theory</h2>
+      <p>The tool position of the 2R arm is</p>
+      <div class="eq">x = l₁cos θ₁ + l₂cos(θ₁+θ₂)
+y = l₁sin θ₁ + l₂sin(θ₁+θ₂)</div>
+      <p>Differentiating with respect to time gives v = J q̇ with</p>
+      <div class="eq">J = ⎡ −l₁s₁ − l₂s₁₂   −l₂s₁₂ ⎤
+    ⎣  l₁c₁ + l₂c₁₂    l₂c₁₂ ⎦
+
+det J = l₁ l₂ sin θ₂</div>
+      <p>When det J = 0 the arm is singular: the tool cannot move in one direction however fast the joints turn, and J⁻¹ does not exist.</p>
+    </div>
+    <div class="panel">
+      <h2>Procedure</h2>
+      <ol>
+        <li>With θ₂ = 90°, set θ̇₁ = 30°/s and θ̇₂ = 0. Check that v is perpendicular to the line from the base to the tool.</li>
+        <li>Change θ₁ only. Confirm det J and the ellipse shape do not change, only its orientation.</li>
+        <li>Move θ₂ towards 0°. Watch σ₂ shrink and κ grow until the ellipse becomes a line.</li>
+        <li>Switch to inverse mode and ask for ẋ = 0.2 m/s. Press Run and record the joint rates as the arm nears full stretch.</li>
+        <li>Plot your recorded θ̇ against det J. Explain why joint rates blow up near a singularity.</li>
+        <li>Set l₁ = l₂ and find where the inner workspace boundary disappears.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2>What the ellipse means</h2>
+      <ul>
+        <li>All joint-rate vectors with ‖q̇‖ = 1 rad/s map to tool velocities on this ellipse.</li>
+        <li>Its semi-axes are the singular values σ₁, σ₂ of J, along the eigenvectors of J Jᵀ.</li>
+        <li>Manipulability w = σ₁σ₂ = |det J| is proportional to the ellipse area.</li>
+        <li>κ = σ₁/σ₂ measures how uneven the arm's dexterity is. κ = 1 is isotropic, κ → ∞ is singular.</li>
+      </ul>
+    </div>
+  </section>
+  <footer>The same Jacobian applies to the first two joints of the SCARA in Experiments 2 and 4. Experiment 6 extends it to forces.</footer>
+</div>
+
+<script>
+(function(){
+const DEG=Math.PI/180;
+const S={t1:30,t2:75,l1:0.35,l2:0.25,qd1:30,qd2:-20,vx:0.15,vy:0,mode:'fwd',run:false};
+const POSE=[
+  {k:'t1',label:'θ₁',name:'Shoulder',min:-180,max:180,step:0.5,unit:'°'},
+  {k:'t2',label:'θ₂',name:'Elbow',min:-180,max:180,step:0.5,unit:'°'},
+  {k:'l1',label:'l₁',name:'Link 1 length',min:0.1,max:0.6,step:0.01,unit:'m'},
+  {k:'l2',label:'l₂',name:'Link 2 length',min:0.1,max:0.6,step:0.01,unit:'m'},
+];
+const RATES={fwd:[
+  {k:'qd1',label:'θ̇₁',name:'Shoulder rate',min:-90,max:90,step:1,unit:'°/s'},
+  {k:'qd2',label:'θ̇₂',name:'Elbow rate',min:-90,max:90,step:1,unit:'°/s'}],
+ inv:[
+  {k:'vx',label:'ẋ',name:'Tool velocity x',min:-0.4,max:0.4,step:0.01,unit:'m/s'},
+  {k:'vy',label:'ẏ',name:'Tool velocity y',min:-0.4,max:0.4,step:0.01,unit:'m/s'}]};
+
+function control(c,host){
+  const d=document.createElement('div');d.className='joint';
+  d.innerHTML=`<label for="${c.k}-n">${c.label} <small>${c.name}</small></label>
+  <span class="num"><input type="number" id="${c.k}-n" min="${c.min}" max="${c.max}" step="${c.step}"><span class="unit">${c.unit}</span></span>
+  <input type="range" id="${c.k}-r" min="${c.min}" max="${c.max}" step="${c.step}" aria-label="${c.name}">
+  <span class="lim"><span>${c.min}</span><span>${c.max}</span></span>`;
+  host.appendChild(d);
+  const r=d.querySelector('[type=range]'),n=d.querySelector('[type=number]');
+  r.addEventListener('input',()=>{S[c.k]=+r.value;n.value=r.value;draw();});
+  n.addEventListener('change',()=>{let v=+n.value;if(isNaN(v))v=S[c.k];v=Math.min(c.max,Math.max(c.min,v));S[c.k]=v;sync();draw();});
+}
+const poseHost=document.getElementById('pose-ctrls'),rateHost=document.getElementById('rate-ctrls');
+POSE.forEach(c=>control(c,poseHost));
+function buildRates(){rateHost.innerHTML='';RATES[S.mode].forEach(c=>control(c,rateHost));sync();}
+function sync(){[...POSE,...RATES[S.mode]].forEach(c=>{const r=document.getElementById(c.k+'-r'),n=document.getElementById(c.k+'-n');if(!r)return;r.value=S[c.k];n.value=+(+S[c.k]).toFixed(c.step<1?2:1);});}
+const wrap=a=>{a=((a+180)%360+360)%360-180;return a;};
+
+function kin(){
+  const t1=S.t1*DEG,t2=S.t2*DEG,c1=Math.cos(t1),s1=Math.sin(t1),c12=Math.cos(t1+t2),s12=Math.sin(t1+t2);
+  const e=[S.l1*c1,S.l1*s1],p=[e[0]+S.l2*c12,e[1]+S.l2*s12];
+  const J=[[-S.l1*s1-S.l2*s12,-S.l2*s12],[S.l1*c1+S.l2*c12,S.l2*c12]];
+  const det=J[0][0]*J[1][1]-J[0][1]*J[1][0];
+  const a=J[0][0]**2+J[0][1]**2,b=J[0][0]*J[1][0]+J[0][1]*J[1][1],c=J[1][0]**2+J[1][1]**2;
+  const m=(a+c)/2,dd=Math.sqrt(((a-c)/2)**2+b*b);
+  const sg1=Math.sqrt(Math.max(m+dd,0)),sg2=Math.sqrt(Math.max(m-dd,0)),phi=0.5*Math.atan2(2*b,a-c);
+  let Ji=null;if(Math.abs(det)>1e-6)Ji=[[J[1][1]/det,-J[0][1]/det],[-J[1][0]/det,J[0][0]/det]];
+  let qd,v;
+  if(S.mode==='fwd'){qd=[S.qd1*DEG,S.qd2*DEG];v=[J[0][0]*qd[0]+J[0][1]*qd[1],J[1][0]*qd[0]+J[1][1]*qd[1]];}
+  else{v=[S.vx,S.vy];qd=Ji?[Ji[0][0]*v[0]+Ji[0][1]*v[1],Ji[1][0]*v[0]+Ji[1][1]*v[1]]:[NaN,NaN];}
+  return {e,p,J,Ji,det,sg1,sg2,phi,qd,v};
+}
+
+/* canvas */
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),vp=document.getElementById('vp');
+const ch=document.getElementById('chart'),cx2=ch.getContext('2d');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let W=0,H=0,scale=1,ox=0,oy=0;
+function fit(c){const r=c.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);c.width=Math.round(r.width*dpr);c.height=Math.round(r.height*dpr);return {w:r.width,h:r.height,dpr};}
+function resize(){const a=fit(cv);W=a.w;H=a.h;ctx.setTransform(a.dpr,0,0,a.dpr,0,0);const R=Math.max(1.2,(S.l1+S.l2)*1.15);scale=Math.min(W,H)/(2*R);ox=W/2;oy=H/2+0;const b=fit(ch);cx2.setTransform(b.dpr,0,0,b.dpr,0,0);draw();}
+const X=x=>ox+x*scale,Yp=y=>oy-y*scale;
+function arrow(c,x0,y0,x1,y1,col,w){c.strokeStyle=col;c.fillStyle=col;c.lineWidth=w;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();const a=Math.atan2(y1-y0,x1-x0),L=Math.hypot(x1-x0,y1-y0);if(L<3)return;const h=Math.min(12,L*0.5);c.beginPath();c.moveTo(x1,y1);c.lineTo(x1-h*Math.cos(a-0.4),y1-h*Math.sin(a-0.4));c.lineTo(x1-h*Math.cos(a+0.4),y1-h*Math.sin(a+0.4));c.closePath();c.fill();}
+
+function draw(){
+  if(!W)return;
+  const K=kin(),R=Math.max(1.2,(S.l1+S.l2)*1.15),ns=Math.min(W,H)/(2*R);if(Math.abs(ns-scale)>1e-9){scale=ns;}
+  const g=css('--grid3d'),fg=css('--fg'),mu=css('--muted'),lk=css('--link3d'),vr=css('--var'),ac=css('--accent');
+  ctx.fillStyle=css('--scene');ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=g;ctx.lineWidth=1;ctx.globalAlpha=0.6;ctx.beginPath();
+  for(let k=-20;k<=20;k++){const x=X(k*0.1),y=Yp(k*0.1);if(x>=0&&x<=W){ctx.moveTo(x,0);ctx.lineTo(x,H);}if(y>=0&&y<=H){ctx.moveTo(0,y);ctx.lineTo(W,y);}}
+  ctx.stroke();ctx.globalAlpha=1;
+  // workspace
+  ctx.setLineDash([6,5]);ctx.strokeStyle=mu;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(ox,oy,(S.l1+S.l2)*scale,0,2*Math.PI);ctx.stroke();
+  const rin=Math.abs(S.l1-S.l2);if(rin>0.005){ctx.beginPath();ctx.arc(ox,oy,rin*scale,0,2*Math.PI);ctx.stroke();}
+  ctx.setLineDash([]);
+  // base axes
+  arrow(ctx,ox,oy,ox+40,oy,css('--ax-x'),2);arrow(ctx,ox,oy,ox,oy-40,css('--ax-y'),2);
+  ctx.fillStyle=mu;ctx.font='12px '+css('--f-mono');ctx.fillText('x₀',ox+44,oy+4);ctx.fillText('y₀',ox-6,oy-46);
+  // arm
+  ctx.lineCap='round';ctx.strokeStyle=lk;ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(X(K.e[0]),Yp(K.e[1]));ctx.stroke();
+  ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(X(K.e[0]),Yp(K.e[1]));ctx.lineTo(X(K.p[0]),Yp(K.p[1]));ctx.stroke();
+  [[ox,oy,9],[X(K.e[0]),Yp(K.e[1]),7]].forEach(([x,y,r])=>{ctx.fillStyle=css('--panel');ctx.strokeStyle=fg;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fill();ctx.stroke();});
+  // ellipse
+  const T=0.3,px=X(K.p[0]),py=Yp(K.p[1]);
+  ctx.save();ctx.translate(px,py);ctx.rotate(-K.phi);ctx.strokeStyle=vr;ctx.lineWidth=2;ctx.fillStyle=vr;ctx.globalAlpha=0.12;
+  ctx.beginPath();ctx.ellipse(0,0,Math.max(K.sg1*T*scale,0.5),Math.max(K.sg2*T*scale,0.5),0,0,2*Math.PI);ctx.fill();ctx.globalAlpha=1;ctx.stroke();ctx.restore();
+  // velocity
+  if(isFinite(K.v[0]))arrow(ctx,px,py,px+K.v[0]*T*scale,py-K.v[1]*T*scale,ac,3);
+  ctx.fillStyle=fg;ctx.beginPath();ctx.arc(px,py,4,0,2*Math.PI);ctx.fill();
+  if(trail.length>1){ctx.strokeStyle=ac;ctx.globalAlpha=0.5;ctx.lineWidth=1.5;ctx.beginPath();trail.forEach((p,i)=>i?ctx.lineTo(X(p[0]),Yp(p[1])):ctx.moveTo(X(p[0]),Yp(p[1])));ctx.stroke();ctx.globalAlpha=1;}
+  readouts(K);chart();
+}
+function readouts(K){
+  const f=(v,n)=>(Math.abs(v)<0.5*Math.pow(10,-n)?0:v).toFixed(n);
+  document.getElementById('mJ').innerHTML=K.J.flat().map(v=>`<span>${f(v,4)}</span>`).join('');
+  document.getElementById('mJi').innerHTML=K.Ji?K.Ji.flat().map(v=>`<span>${f(v,3)}</span>`).join(''):'<span>does</span><span>not</span><span>exist</span><span>(det 0)</span>';
+  document.getElementById('det').textContent=f(K.det,5);
+  document.getElementById('w').textContent=f(Math.abs(K.det),5);
+  document.getElementById('s1').textContent=f(K.sg1,4);
+  document.getElementById('s2').textContent=f(K.sg2,4);
+  const kap=K.sg2>1e-6?K.sg1/K.sg2:Infinity;
+  document.getElementById('kap').textContent=isFinite(kap)?kap.toFixed(2):'∞';
+  document.getElementById('pos').textContent=`(${f(K.p[0],3)}, ${f(K.p[1],3)})`;
+  const q1=K.qd[0]/DEG,q2=K.qd[1]/DEG;
+  document.getElementById('qd1').textContent=isFinite(q1)?f(q1,1):'∞';
+  document.getElementById('qd2').textContent=isFinite(q2)?f(q2,1):'∞';
+  document.getElementById('vx').textContent=f(K.v[0],4);
+  document.getElementById('vy').textContent=f(K.v[1],4);
+  const b=document.getElementById('badge');const near=Math.abs(Math.sin(S.t2*DEG))<0.05;
+  b.className='badge '+(near?'bad':'ok');b.textContent=near?(Math.abs(K.det)<1e-6?'Singular pose':'Near singular'):'Regular pose';
+}
+function chart(){
+  const r=ch.getBoundingClientRect(),w=r.width,h=r.height;if(!w)return;
+  const c=cx2,mu=css('--muted'),g=css('--line'),vr=css('--var'),ac=css('--accent');
+  c.clearRect(0,0,w,h);
+  const L=46,Rm=18,T=10,B=24,pw=w-L-Rm,ph=h-T-B,wmax=S.l1*S.l2;
+  const xs=a=>L+(a+180)/360*pw,ys=v=>T+ph-(v/wmax)*ph;
+  c.font='11px '+css('--f-mono');c.fillStyle=mu;c.strokeStyle=g;c.lineWidth=1;
+  [-180,-90,0,90,180].forEach(a=>{c.beginPath();c.moveTo(xs(a),T);c.lineTo(xs(a),T+ph);c.stroke();c.textAlign='center';c.fillText(a+'°',xs(a),h-6);});
+  [0,0.5,1].forEach(fr=>{c.beginPath();c.moveTo(L,ys(fr*wmax));c.lineTo(L+pw,ys(fr*wmax));c.stroke();c.textAlign='right';c.fillText((fr*wmax).toFixed(3),L-4,ys(fr*wmax)+4);});
+  c.beginPath();for(let a=-180;a<=180;a+=2){const v=Math.abs(S.l1*S.l2*Math.sin(a*DEG));a===-180?c.moveTo(xs(a),ys(v)):c.lineTo(xs(a),ys(v));}
+  c.lineTo(xs(180),ys(0));c.lineTo(xs(-180),ys(0));c.closePath();c.fillStyle=vr;c.globalAlpha=0.12;c.fill();c.globalAlpha=1;
+  c.beginPath();for(let a=-180;a<=180;a+=2){const v=Math.abs(S.l1*S.l2*Math.sin(a*DEG));a===-180?c.moveTo(xs(a),ys(v)):c.lineTo(xs(a),ys(v));}c.strokeStyle=vr;c.lineWidth=2;c.stroke();
+  const t2=wrap(S.t2),cv_=Math.abs(S.l1*S.l2*Math.sin(t2*DEG));
+  c.fillStyle=ac;c.beginPath();c.arc(xs(t2),ys(cv_),5,0,2*Math.PI);c.fill();
+}
+
+/* run */
+let trail=[],lastT=0;
+const runBtn=document.getElementById('run'),msg=document.getElementById('run-msg');
+function setRun(on){S.run=on;runBtn.textContent=on?'Stop':'Run motion';if(on){trail=[];msg.hidden=true;lastT=performance.now();requestAnimationFrame(step);}}
+function step(now){
+  if(!S.run)return;
+  const dt=Math.min(0.05,(now-lastT)/1000);lastT=now;
+  const K=kin();
+  if(!isFinite(K.qd[0])||Math.abs(K.qd[0])>8||Math.abs(K.qd[1])>8){
+    msg.hidden=false;msg.textContent=`Stopped: the joints would need more than ${Math.round(8/DEG)}°/s to keep the tool moving. The arm is at or near a singularity (det J = ${K.det.toFixed(5)} m²).`;
+    setRun(false);draw();return;
+  }
+  S.t1=wrap(S.t1+K.qd[0]/DEG*dt);S.t2=wrap(S.t2+K.qd[1]/DEG*dt);
+  trail.push(K.p.slice());if(trail.length>800)trail.shift();
+  sync();draw();requestAnimationFrame(step);
+}
+runBtn.addEventListener('click',()=>setRun(!S.run));
+document.getElementById('reset').addEventListener('click',()=>{setRun(false);Object.assign(S,{t1:30,t2:75,l1:0.35,l2:0.25,qd1:30,qd2:-20,vx:0.15,vy:0});trail=[];msg.hidden=true;sync();resize();});
+document.getElementById('p-sing').addEventListener('click',()=>{S.t2=0;sync();draw();});
+document.getElementById('p-fold').addEventListener('click',()=>{S.t2=180;sync();draw();});
+function setMode(m){S.mode=m;document.getElementById('m-fwd').setAttribute('aria-pressed',String(m==='fwd'));document.getElementById('m-inv').setAttribute('aria-pressed',String(m==='inv'));buildRates();draw();}
+document.getElementById('m-fwd').addEventListener('click',()=>setMode('fwd'));
+document.getElementById('m-inv').addEventListener('click',()=>setMode('inv'));
+['l1','l2'].forEach(k=>{document.getElementById(k+'-r').addEventListener('input',resize);document.getElementById(k+'-n').addEventListener('change',resize);});
+
+/* drag tool: simple IK keeping elbow sign */
+let drag=false;
+cv.addEventListener('pointerdown',e=>{const K=kin(),r=cv.getBoundingClientRect();if(Math.hypot(e.clientX-r.left-X(K.p[0]),e.clientY-r.top-Yp(K.p[1]))<24){drag=true;cv.setPointerCapture(e.pointerId);}});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const r=cv.getBoundingClientRect();let x=(e.clientX-r.left-ox)/scale,y=(oy-(e.clientY-r.top))/scale;
+  let d=Math.hypot(x,y);const mx=S.l1+S.l2-1e-4,mn=Math.abs(S.l1-S.l2)+1e-4;if(d>mx){x*=mx/d;y*=mx/d;d=mx;}if(d<mn&&d>0){x*=mn/d;y*=mn/d;d=mn;}
+  const c2=(d*d-S.l1*S.l1-S.l2*S.l2)/(2*S.l1*S.l2),sgn=S.t2>=0?1:-1,t2=sgn*Math.acos(Math.max(-1,Math.min(1,c2)));
+  const t1=Math.atan2(y,x)-Math.atan2(S.l2*Math.sin(t2),S.l1+S.l2*Math.cos(t2));
+  S.t1=wrap(t1/DEG);S.t2=t2/DEG;sync();draw();});
+cv.addEventListener('pointerup',()=>drag=false);cv.addEventListener('pointercancel',()=>drag=false);
+
+new ResizeObserver(resize).observe(vp);
+try{window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',draw);}catch(e){}
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+buildRates();resize();
+})();
+</script>
+</body>
+</html>
